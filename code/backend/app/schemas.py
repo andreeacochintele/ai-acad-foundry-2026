@@ -53,6 +53,17 @@ class IngestRequest(ChunkRequest):
 
     source: Optional[str] = Field(None, description="Label stored with every chunk (e.g. 'cards-faq')")
 
+    # Improvement #2 (Assignment 3, Part 4): real metadata, mirroring the YAML
+    # front matter on each corpus document. Stored on every chunk so it can
+    # later be used to filter search results (Part 5) — e.g. preferring the
+    # 2026 fee schedule over the 2025 one by `effective` date, instead of
+    # letting a marginally-higher similarity score pick the wrong version.
+    title: Optional[str] = Field(None, description="Document title, from its front matter")
+    product: Optional[str] = Field(None, description="Product line, e.g. 'mortgages'")
+    audience: Optional[str] = Field(None, description="Intended audience, e.g. 'retail'")
+    effective: Optional[str] = Field(None, description="Effective date (YYYY-MM-DD) from front matter")
+    version: Optional[int] = Field(None, description="Document version number from front matter")
+
 
 class IngestResponse(BaseModel):
     strategy: Strategy
@@ -74,6 +85,20 @@ class SearchRequest(BaseModel):
     query: str = Field(..., min_length=1)
     top_k: Optional[int] = Field(None, ge=1, le=50)
 
+    # Part 5 improvements
+    min_score: Optional[float] = Field(
+        None, ge=0, le=1,
+        description="Drop hits below this cosine similarity. Retrieval always "
+                    "returns *something* — this is what turns a weak match "
+                    "into an honest 'nothing relevant found' instead of a "
+                    "confident wrong answer.",
+    )
+    product: Optional[str] = Field(None, description="Restrict to chunks with this 'product' metadata, e.g. 'mortgages'")
+    effective_after: Optional[str] = Field(
+        None, description="YYYY-MM-DD — only return chunks whose document is effective on or after this date "
+                          "(picks the current version over a superseded one, e.g. the 2026 fee schedule over the 2025 one)",
+    )
+
 
 class SearchHit(BaseModel):
     score: float = Field(description="Cosine similarity — 1.0 is identical direction")
@@ -82,6 +107,12 @@ class SearchHit(BaseModel):
     strategy: Optional[str] = None
     source: Optional[str] = None
     id: str
+    # Improvement #2: surfaced so a reviewer (or the frontend) can see WHICH
+    # document and version grounded an answer, not just its raw text.
+    title: Optional[str] = None
+    product: Optional[str] = None
+    effective: Optional[str] = None
+    version: Optional[int] = None
 
 
 class SearchResponse(BaseModel):
@@ -113,6 +144,11 @@ class AskRequest(BaseModel):
     agent_mode: Optional[Literal["local", "foundry"]] = Field(
         None, description="local = the loop runs here; foundry = the hosted Agent Service"
     )
+
+    # Part 5 improvements — same meaning as in SearchRequest, applied when use_rag=true
+    min_score: Optional[float] = Field(None, ge=0, le=1, description="Drop retrieved chunks below this similarity")
+    product: Optional[str] = Field(None, description="Restrict retrieval to this product line, e.g. 'mortgages'")
+    effective_after: Optional[str] = Field(None, description="YYYY-MM-DD — only retrieve documents effective on or after this date")
 
 
 class AgentInfo(BaseModel):

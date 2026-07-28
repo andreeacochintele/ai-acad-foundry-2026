@@ -269,7 +269,14 @@ def ingest(req: IngestRequest) -> IngestResponse:
         store.ensure_collection(dim)
     except DimensionMismatch as e:
         raise HTTPException(status_code=409, detail=str(e))
-    ids = store.upsert(pieces, vectors, p["strategy"], req.source)
+    ids = store.upsert(
+        pieces, vectors, p["strategy"], req.source,
+        metadata={
+            "title": req.title, "product": req.product,
+            "audience": req.audience, "effective": req.effective,
+            "version": req.version,
+        },
+    )
     return IngestResponse(
         strategy=p["strategy"], count=len(pieces), vector_dimension=dim,
         embedding_preview=[round(x, 5) for x in vectors[0][:8]],
@@ -300,7 +307,8 @@ def search(req: SearchRequest) -> SearchResponse:
         raise HTTPException(status_code=404, detail="Collection is empty — POST /ingest first.")
     top_k = req.top_k or settings.top_k
     qvec = _embed([req.query])[0]
-    hits = store.search(qvec, top_k)
+    query_filter = store.build_filter(product=req.product, effective_after=req.effective_after)
+    hits = store.search(qvec, top_k, query_filter=query_filter, score_threshold=req.min_score)
     return SearchResponse(
         query=req.query, top_k=top_k, embedding_model=_embedder().describe(),
         query_embedding_preview=[round(x, 5) for x in qvec[:8]],
@@ -350,7 +358,8 @@ def ask(req: AskRequest) -> AskResponse:
                                        "or set use_rag=false for a plain LLM answer.")
         top_k = req.top_k or settings.top_k
         qvec = _embed([req.question])[0]
-        retrieved = [SearchHit(**h) for h in store.search(qvec, top_k)]
+        query_filter = store.build_filter(product=req.product, effective_after=req.effective_after)
+        retrieved = [SearchHit(**h) for h in store.search(qvec, top_k, query_filter=query_filter, score_threshold=req.min_score)]
 
     chunks = [h.model_dump() for h in retrieved]
     mode = mode_requested
