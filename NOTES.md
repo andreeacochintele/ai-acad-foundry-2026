@@ -56,7 +56,40 @@ prefer the current version when both documents are this similar.
 
 ## Part 5 — Retrieval improvements
 
-<!-- TODO -->
+**Improvement #1 — Score threshold** (`min_score` on `/search` and `/ask`,
+using Qdrant's native `score_threshold` param in `store.search()`)
+
+Before: retrieval always returns the top *k* hits, no matter how unrelated
+the query is — a completely off-topic question still gets 3 "closest"
+chunks with a near-zero score, which risked being fed to the model as if
+they were relevant context.
+
+After: hits below `min_score` are dropped by Qdrant itself, before they ever
+reach the application.
+
+*Tested:* query `"what's the best recipe for chocolate cake?"`,
+`min_score: 0.3`. Without the threshold this query previously returned 3
+weak hits (best score ~0.06). With the threshold: `"hits": []` — an honest
+empty result instead of a confident-looking but meaningless top-3.
+
+**Improvement #2 — Metadata filter** (`product` / `effective_after` on
+`/search` and `/ask`, via `VectorStore.build_filter()` and Qdrant's native
+`query_filter`)
+
+Before: the 2025 and 2026 fee schedules competed purely on similarity score
+— 0.7097 vs. 0.7069, a gap of 0.0028 — so both routinely landed in the
+same top-3, contradicting each other in the retrieved context.
+
+After: `effective_after: "2026-01-01"` restricts retrieval to chunks whose
+document's effective date is on or after that date, using a numeric
+`effective_int` field (e.g. `2026-01-15` → `20260115`) computed at ingest
+time and compared with a Qdrant range filter.
+
+*Tested:* same query, `"early repayment fee?"`, `top_k: 3`,
+`effective_after: "2026-01-01"`. All 3 returned hits are now from
+`05-early-repayment-fees-2026` only — the 2025 document is excluded
+entirely, regardless of its similarity score. This directly fixes the
+problem documented in Part 4's before/after comparison.
 
 ---
 
