@@ -98,6 +98,14 @@ class SearchRequest(BaseModel):
         None, description="YYYY-MM-DD — only return chunks whose document is effective on or after this date "
                           "(picks the current version over a superseded one, e.g. the 2026 fee schedule over the 2025 one)",
     )
+    dedupe: Optional[bool] = Field(
+        False, description="Drop near-duplicate hits (e.g. two overlapping chunks repeating the same "
+                           "sentence) instead of letting them fill up top_k with redundant text.",
+    )
+    rewrite_query: Optional[bool] = Field(
+        False, description="Run the raw query through a cheap LLM rewrite before embedding — "
+                           "turns something like 'it got blocked again??' into a clearer search query.",
+    )
 
 
 class SearchHit(BaseModel):
@@ -121,6 +129,7 @@ class SearchResponse(BaseModel):
     embedding_model: dict
     query_embedding_preview: list[float]
     hits: list[SearchHit]
+    rewritten_query: Optional[str] = Field(None, description="What the query became before embedding, if rewrite_query was true")
 
 
 # --- generation ---------------------------------------------------------------
@@ -149,6 +158,8 @@ class AskRequest(BaseModel):
     min_score: Optional[float] = Field(None, ge=0, le=1, description="Drop retrieved chunks below this similarity")
     product: Optional[str] = Field(None, description="Restrict retrieval to this product line, e.g. 'mortgages'")
     effective_after: Optional[str] = Field(None, description="YYYY-MM-DD — only retrieve documents effective on or after this date")
+    dedupe: Optional[bool] = Field(False, description="Drop near-duplicate retrieved chunks")
+    rewrite_query: Optional[bool] = Field(False, description="Rewrite the question into a cleaner search query before embedding")
 
 
 class AgentInfo(BaseModel):
@@ -258,6 +269,7 @@ class AskResponse(BaseModel):
     prompt_sent: str = Field(description="The exact user prompt sent to the model — compare with/without RAG")
     retrieved: list[SearchHit] = Field(default_factory=list)
     usage: Optional[Usage] = None
+    rewritten_query: Optional[str] = Field(None, description="What the question became before embedding, if rewrite_query was true")
 
 
 # --- tools / services ---------------------------------------------------------

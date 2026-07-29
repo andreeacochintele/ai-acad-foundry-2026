@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
 from . import chunking
+from . import rag
 from .agents import foundry_agent, local_agent
 from .agents.persona import PersonaNotFound, available_names, load_persona, list_personas, PERSONA_DIR
 from .config import settings
@@ -263,7 +264,22 @@ def ingest(req: IngestRequest) -> IngestResponse:
     pieces, p = _do_chunk(req)
     if not pieces:
         raise HTTPException(status_code=422, detail="No chunks produced — is the text empty?")
-    vectors = _embed(pieces)
+
+    # Improvement #5 (Assignment 3, Part 4): "chunk context". A chunk read in
+    # isolation often lacks the noun it's actually about — e.g. "A minimum
+    # down payment of 15 percent... is required for a first home" doesn't
+    # say WHICH mortgage product, because that's only stated once, at the
+    # top of the document, in a different chunk. We can't un-fragment the
+    # text, but we CAN give the embedding model more to work with: embed
+    # each chunk prefixed with its document title, so the vector reflects
+    # "this is from the eligibility-criteria document" even when the chunk's
+    # own words don't say so. The stored/returned text stays exactly as
+    # chunked — only what gets embedded changes.
+    embed_inputs = pieces
+    if req.title:
+        embed_inputs = [f"Document: {req.title}\n\n{piece}" for piece in pieces]
+
+    vectors = _embed(embed_inputs)
     dim = len(vectors[0])
     try:
         store.ensure_collection(dim)
@@ -306,13 +322,26 @@ def search(req: SearchRequest) -> SearchResponse:
     if not store.info()["exists"]:
         raise HTTPException(status_code=404, detail="Collection is empty — POST /ingest first.")
     top_k = req.top_k or settings.top_k
-    qvec = _embed([req.query])[0]
+
+    # Improvement #4 (Part 5): rewrite the raw query into something a vector
+    # search has a better shot at, before it gets embedded. The ORIGINAL
+    # query is still what's returned/displayed — `rewritten_query` shows
+    # what actually got embedded, so the effect stays inspectable rather
+    # than happening silently.
+    query_text = req.query
+    rewritten = None
+    if req.rewrite_query:
+        rewritten = rag.rewrite_query(req.query)
+        query_text = rewritten
+
+    qvec = _embed([query_text])[0]
     query_filter = store.build_filter(product=req.product, effective_after=req.effective_after)
-    hits = store.search(qvec, top_k, query_filter=query_filter, score_threshold=req.min_score)
+    hits = store.search(qvec, top_k, query_filter=query_filter, score_threshold=req.min_score, dedupe=req.dedupe)
     return SearchResponse(
         query=req.query, top_k=top_k, embedding_model=_embedder().describe(),
         query_embedding_preview=[round(x, 5) for x in qvec[:8]],
         hits=[SearchHit(**h) for h in hits],
+        rewritten_query=rewritten,
     )
 
 
@@ -350,6 +379,7 @@ def ask(req: AskRequest) -> AskResponse:
             raise HTTPException(status_code=404, detail=str(e))
 
     # ---- retrieval (unchanged behaviour, now feeding the agent) -------------
+    rewritten_query = None
     if req.use_rag:
         _require_qdrant()
         if not store.info()["exists"]:
@@ -357,9 +387,13 @@ def ask(req: AskRequest) -> AskResponse:
                                 detail="use_rag=true but the collection is empty — POST /ingest first, "
                                        "or set use_rag=false for a plain LLM answer.")
         top_k = req.top_k or settings.top_k
-        qvec = _embed([req.question])[0]
+        query_text = req.question
+        if req.rewrite_query:
+            rewritten_query = rag.rewrite_query(req.question)
+            query_text = rewritten_query
+        qvec = _embed([query_text])[0]
         query_filter = store.build_filter(product=req.product, effective_after=req.effective_after)
-        retrieved = [SearchHit(**h) for h in store.search(qvec, top_k, query_filter=query_filter, score_threshold=req.min_score)]
+        retrieved = [SearchHit(**h) for h in store.search(qvec, top_k, query_filter=query_filter, score_threshold=req.min_score, dedupe=req.dedupe)]
 
     chunks = [h.model_dump() for h in retrieved]
     mode = mode_requested
@@ -398,6 +432,7 @@ def ask(req: AskRequest) -> AskResponse:
         prompt_sent=reply.prompt_sent,
         retrieved=retrieved,
         usage=Usage(prompt_tokens=reply.prompt_tokens, completion_tokens=reply.completion_tokens),
+        rewritten_query=rewritten_query,
     )
 
 

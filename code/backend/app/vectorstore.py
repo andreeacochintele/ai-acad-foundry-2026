@@ -122,18 +122,24 @@ class VectorStore:
 
     def search(self, vector: list[float], top_k: int,
                query_filter: "models.Filter | None" = None,
-               score_threshold: float | None = None) -> list[dict]:
-        """Part 5, improvement #1 (score threshold) and #2 (metadata filter),
-        both using Qdrant's native support rather than filtering in Python:
-        `score_threshold` drops weak hits at the database level, and
-        `query_filter` restricts by payload fields (product, effective date).
+               score_threshold: float | None = None,
+               dedupe: bool = False) -> list[dict]:
+        """Part 5, improvement #1 (score threshold), #2 (metadata filter) and
+        #5 (dedupe), all combined here. `dedupe=True` fetches a larger
+        candidate pool from Qdrant (score-sorted, same as always) and then
+        drops any hit that's a near-duplicate of one already selected —
+        the classic failure mode being two overlapping chunks from a
+        `dynamic`-strategy document that repeat the same sentence at their
+        shared boundary, quietly filling 2 of 3 `top_k` slots with the same
+        fact instead of surfacing a third, different one.
         """
+        fetch_limit = min(top_k * 4, 30) if dedupe else top_k
         hits = self.client.query_points(
-            collection_name=self.collection, query=vector, limit=top_k,
+            collection_name=self.collection, query=vector, limit=fetch_limit,
             query_filter=query_filter, score_threshold=score_threshold,
             with_payload=True,
         ).points
-        return [
+        results = [
             {
                 "id": str(h.id),
                 "score": round(float(h.score), 4),
@@ -148,6 +154,9 @@ class VectorStore:
             }
             for h in hits
         ]
+        if dedupe:
+            return _dedupe_hits(results, top_k)
+        return results[:top_k]
 
     @staticmethod
     def build_filter(product: str | None = None, effective_after: str | None = None) -> "models.Filter | None":
@@ -197,3 +206,53 @@ class VectorStore:
     def _vector_size(self) -> int:
         cfg = self.client.get_collection(self.collection).config.params.vectors
         return cfg.size if hasattr(cfg, "size") else next(iter(cfg.values())).size
+
+
+# --- deduplication (Part 5, improvement #5) -----------------------------------
+#
+# The failure mode actually observed in this project (see NOTES.md): the
+# `dynamic` strategy's overlap deliberately copies a trailing sentence
+# VERBATIM into the next chunk, so it isn't lost at a boundary. That's
+# correct behaviour for chunking — but it means two *adjacent* chunks can
+# legitimately both surface for the same query, each burning a `top_k` slot
+# on largely the same sentence. A generic text-similarity score (e.g.
+# whole-chunk Jaccard) turned out to be too blunt to catch this reliably —
+# the shared sentence gets diluted by each chunk's other, genuinely
+# different content. What actually identifies this case is simpler and more
+# precise: a long run of IDENTICAL characters between two chunks, because
+# that's literally what the overlap mechanism produces.
+
+def _shares_long_run(a: str, b: str, min_len: int = 50, stride: int = 8) -> bool:
+    """True if a `min_len`-character run of `a` appears verbatim in `b`."""
+    a_norm = " ".join(a.split())
+    b_norm = " ".join(b.split())
+    if len(a_norm) < min_len or len(b_norm) < min_len:
+        return False
+    for i in range(0, len(a_norm) - min_len + 1, stride):
+        if a_norm[i : i + min_len] in b_norm:
+            return True
+    return False
+
+
+def _dedupe_hits(hits: list[dict], top_k: int, min_shared_run: int = 50) -> list[dict]:
+    """Walk hits best-score-first; keep a hit only if it doesn't share a long
+    verbatim run of text with something already kept FROM THE SAME SOURCE
+    document. That restriction matters: this corpus deliberately has two
+    near-duplicate documents (the 2025 and 2026 fee schedules) that share a
+    lot of boilerplate phrasing on purpose — comparing across sources would
+    wrongly flag them as redundant with each other, when they're actually
+    two different, both-legitimate facts. Restricting the check to same-
+    source hits targets the real bug this fixes: adjacent chunks from ONE
+    document, both carrying the same overlap-copied sentence."""
+    selected: list[dict] = []
+    for hit in hits:
+        duplicate = any(
+            kept.get("source") == hit.get("source") and _shares_long_run(hit["text"], kept["text"], min_shared_run)
+            for kept in selected
+        )
+        if duplicate:
+            continue
+        selected.append(hit)
+        if len(selected) >= top_k:
+            break
+    return selected
