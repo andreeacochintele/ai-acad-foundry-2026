@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Libra Assist — Case Console</title>
+<style>
+  /* ============================================================
+     DESIGN NOTE (kept in the file on purpose, for whoever reads
+     this next): the subject here is a loan officer's case file,
+     not a generic chat app. Every grounded answer is a claim that
+     needs a paper trail — so the signature element is an actual
+     ink-stamp on each answer ("GROUNDED & CITED" / "NOT FOUND" /
+     "UNGROUNDED BY CHOICE"), the way a real case file gets stamped
+     before it leaves someone's desk. Everything else stays quiet
+     so that stamp is the one thing your eye catches first.
+     ============================================================ */
+
+  @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --ink: #0b1420;
+    --ink-2: #16223a;
+    --line: #2a3750;
+    --paper: #eef0ea;
+    --card: #fffdf8;
+    --card-line: #e2ded0;
+    --text: #1b2430;
+    --muted: #6b7690;
+    --brass: #b8935a;
+    --brass-deep: #8a6a3c;
+    --verified: #3f7d5c;
+    --verified-bg: #eaf3ee;
+    --unverified: #a6491f;
+    --unverified-bg: #fbf0e9;
+    --ungrounded: #6b7280;
+    --ungrounded-bg: #eef0f2;
+    --serif: "Source Serif 4", Georgia, serif;
+    --sans: "Inter", "Segoe UI", system-ui, sans-serif;
+    --mono: "JetBrains Mono", "SF Mono", Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: var(--sans); background: var(--paper); color: var(--text); }
+
+  .shell { display: grid; grid-template-columns: 300px 1fr; height: 100vh; }
+
+  /* ---------------------------------------------------------
+     Sidebar — the "case file drawer": brand, then two tabs
+     (Controls / Bibliography), not a wall of settings at once.
+     --------------------------------------------------------- */
+  aside {
+    background: var(--ink); color: #dde3ec; padding: 26px 22px;
+    display: flex; flex-direction: column; overflow-y: auto;
+  }
+
+  .brand { font-family: var(--serif); font-size: 22px; font-weight: 700; color: #fff; letter-spacing: 0.01em; }
+  .brand-mark { color: var(--brass); }
+  .brand-sub { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: #7c8bab; margin-top: 3px; }
+
+  .tabbar { display: flex; gap: 4px; margin: 20px 0 18px; border-bottom: 1px solid var(--line); }
+  .tabbar button {
+    flex: 1; background: none; border: none; color: #8794ad; font-family: var(--sans); font-size: 12.5px;
+    font-weight: 600; padding: 9px 4px; cursor: pointer; border-bottom: 2px solid transparent;
+  }
+  .tabbar button.active { color: #fff; border-bottom-color: var(--brass); }
+
+  .tab-panel { display: none; flex-direction: column; gap: 16px; }
+  .tab-panel.active { display: flex; }
+
+  .field label {
+    display: block; font-family: var(--mono); font-size: 10px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.08em; color: #7c8bab; margin-bottom: 6px;
+  }
+  select, input[type=text], input[type=number] {
+    width: 100%; font-family: var(--sans); font-size: 14px; padding: 8px 10px;
+    border-radius: 5px; border: 1px solid var(--line); background: var(--ink-2); color: #fff;
+  }
+  select option { background: var(--ink); }
+  .field-hint { font-size: 11.5px; color: #7c8bab; margin-top: 6px; line-height: 1.5; }
+
+  .toggle-row { display: flex; align-items: center; justify-content: space-between;
+    background: var(--ink-2); border-radius: 6px; padding: 10px 12px; }
+  .toggle-row span { font-size: 13px; }
+  .switch { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch .track { position: absolute; inset: 0; background: var(--line); border-radius: 20px; cursor: pointer; transition: .15s; }
+  .switch .track::before { content: ""; position: absolute; height: 14px; width: 14px; left: 3px; top: 3px;
+    background: #fff; border-radius: 50%; transition: .15s; }
+  .switch input:checked + .track { background: var(--brass-deep); }
+  .switch input:checked + .track::before { transform: translateX(16px); }
+
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  button.ghost {
+    background: none; border: 1px solid var(--line); color: #dde3ec; font-family: var(--sans); font-size: 13px;
+    padding: 9px 10px; border-radius: 6px; cursor: pointer; text-align: left;
+  }
+  button.ghost:hover { background: var(--ink-2); }
+
+  .sidebar-footer { margin-top: auto; padding-top: 14px; }
+  .status-pill { font-family: var(--mono); font-size: 11px; padding: 8px 10px; border-radius: 6px;
+    background: var(--ink-2); border: 1px solid var(--line); }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; }
+  .dot.up { background: #5fbf8a; } .dot.down { background: #d9695f; } .dot.unknown { background: #7c8bab; }
+
+  /* ---- Bibliography tab ---- */
+  .biblio-empty { font-size: 12.5px; color: #7c8bab; line-height: 1.6; }
+  .biblio-item {
+    background: var(--ink-2); border-left: 2px solid var(--brass); border-radius: 4px;
+    padding: 8px 10px; font-size: 12.5px;
+  }
+  .biblio-item .title { font-weight: 600; color: #fff; }
+  .biblio-item .meta { font-family: var(--mono); font-size: 10.5px; color: #7c8bab; margin-top: 2px; }
+
+  /* ---------------------------------------------------------
+     Main — the desk: a header strip, the case-file feed, the
+     composer. Cards look like typed memo slips, not chat bubbles.
+     --------------------------------------------------------- */
+  main { display: flex; flex-direction: column; height: 100vh; }
+
+  .desk-header {
+    background: var(--card); border-bottom: 1px solid var(--card-line); padding: 16px 40px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .desk-header h1 { font-family: var(--serif); font-size: 19px; margin: 0; }
+  .desk-header .tagline { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .desk-actions { display: flex; gap: 10px; align-items: center; }
+  .desk-actions button {
+    font-family: var(--sans); font-size: 12.5px; font-weight: 600; padding: 7px 12px; border-radius: 6px;
+    border: 1px solid var(--card-line); background: #fff; color: var(--text); cursor: pointer;
+  }
+  .desk-actions button:hover { background: var(--paper); }
+  .desk-actions button.compare-on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .chat-scroll { flex: 1; overflow-y: auto; padding: 28px 40px; }
+  .chat-inner { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+
+  .empty-state { text-align: center; margin-top: 60px; }
+  .empty-state h2 { font-family: var(--serif); color: var(--ink); font-size: 22px; margin-bottom: 6px; }
+  .empty-state p { color: var(--muted); font-size: 14px; margin-bottom: 18px; }
+  .example-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 560px; margin: 0 auto; }
+  .chip {
+    font-size: 12.5px; padding: 7px 12px; border-radius: 16px; background: #fff; border: 1px solid var(--card-line);
+    cursor: pointer; color: var(--text);
+  }
+  .chip:hover { border-color: var(--brass); color: var(--brass-deep); }
+
+  .msg { display: flex; }
+  .msg.user { justify-content: flex-end; }
+  .msg.assistant { justify-content: flex-start; }
+
+  .bubble-user {
+    background: var(--ink); color: #fff; padding: 11px 15px; border-radius: 12px 12px 2px 12px;
+    max-width: 68%; font-size: 14.5px; line-height: 1.5;
+  }
+
+  /* the "memo slip" card + its stamp */
+  .compare-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; width: 100%; }
+  .memo {
+    position: relative; background: var(--card); border: 1px solid var(--card-line); border-radius: 3px;
+    padding: 16px 20px 14px; font-size: 14.5px; line-height: 1.6; max-width: 84%;
+    box-shadow: 0 1px 2px rgba(11,20,32,0.05);
+  }
+  .compare-row .memo { max-width: 100%; }
+
+  .memo .persona-tag { font-family: var(--serif); font-weight: 600; font-size: 13px; color: var(--brass-deep); margin-bottom: 6px; }
+
+  .stamp {
+    position: absolute; top: 10px; right: -10px; transform: rotate(-7deg);
+    font-family: var(--serif); font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 5px 10px; border-radius: 3px; border: 2px solid; opacity: 0.92;
+  }
+  .stamp.verified { color: var(--verified); border-color: var(--verified); background: var(--verified-bg); }
+  .stamp.unverified { color: var(--unverified); border-color: var(--unverified); background: var(--unverified-bg); }
+  .stamp.ungrounded { color: var(--ungrounded); border-color: var(--ungrounded); background: var(--ungrounded-bg); }
+
+  .honest-note { margin-top: 10px; font-size: 12px; padding: 8px 10px; border-radius: 4px; line-height: 1.5; }
+  .honest-note.unverified { background: var(--unverified-bg); color: #7a3316; }
+  .honest-note.ungrounded { background: var(--ungrounded-bg); color: #4a5262; }
+
+  .memo-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+  .memo-meta span { background: var(--paper); padding: 2px 7px; border-radius: 3px; }
+
+  details.sources, details.prompt { margin-top: 10px; }
+  details.sources summary, details.prompt summary {
+    cursor: pointer; font-family: var(--mono); font-size: 11.5px; color: var(--brass-deep); font-weight: 500;
+    list-style: none; user-select: none;
+  }
+  details.sources summary::before, details.prompt summary::before { content: "▸ "; }
+  details.sources[open] summary::before, details.prompt[open] summary::before { content: "▾ "; }
+
+  .source-item {
+    background: var(--paper); border-left: 2px solid var(--brass); border-radius: 3px;
+    padding: 8px 10px; margin-top: 7px; font-size: 12.5px;
+  }
+  .source-item .meta { font-family: var(--mono); font-size: 10.5px; color: var(--muted); margin-bottom: 4px; }
+  .source-item .meta b { color: var(--ink); }
+
+  details.prompt pre {
+    background: var(--ink); color: #d7dee8; padding: 10px 12px; border-radius: 4px;
+    font-family: var(--mono); font-size: 11.5px; overflow-x: auto; max-height: 240px; overflow-y: auto;
+    margin-top: 6px; white-space: pre-wrap;
+  }
+
+  .thinking { color: var(--muted); font-size: 13px; font-style: italic; }
+
+  /* ---- Composer ---- */
+  .composer { border-top: 1px solid var(--card-line); background: var(--card); padding: 14px 40px 20px; }
+  .composer-inner { max-width: 800px; margin: 0 auto; display: flex; gap: 10px; align-items: flex-end; }
+  textarea#question {
+    flex: 1; font-family: var(--sans); font-size: 14.5px; padding: 11px 13px; border-radius: 8px;
+    border: 1px solid var(--card-line); resize: none; min-height: 44px; max-height: 160px; background: #fff;
+  }
+  button#send {
+    background: var(--ink); color: #fff; border: none; border-radius: 8px; padding: 11px 18px;
+    font-size: 14px; font-weight: 600; cursor: pointer; flex-shrink: 0; font-family: var(--sans);
+  }
+  button#send:disabled { background: #9aa5b3; cursor: wait; }
+  .composer-hint { font-family: var(--mono); font-size: 10.5px; color: var(--muted); margin-top: 6px; text-align: center; }
+
+  /* ---- Ingest overlay ---- */
+  .overlay { position: fixed; inset: 0; background: rgba(11,20,32,0.45); display: none;
+    align-items: center; justify-content: center; z-index: 10; }
+  .overlay.open { display: flex; }
+  .panel { background: var(--card); border-radius: 8px; padding: 24px 28px; width: 520px; max-width: 90vw;
+    max-height: 85vh; overflow-y: auto; }
+  .panel h3 { font-family: var(--serif); margin: 0 0 4px 0; color: var(--ink); }
+  .panel p.hint { font-size: 12.5px; color: var(--muted); margin: 0 0 16px 0; }
+  .panel label { display: block; font-family: var(--mono); font-size: 10px; text-transform: uppercase;
+    color: var(--muted); margin: 12px 0 4px; }
+  .panel textarea, .panel input, .panel select {
+    width: 100%; font-family: var(--sans); font-size: 14px; padding: 8px 10px;
+    border: 1px solid var(--card-line); border-radius: 5px;
+  }
+  .panel textarea { min-height: 100px; font-family: var(--mono); font-size: 12.5px; }
+  .panel-actions { display: flex; gap: 10px; margin-top: 16px; }
+  .panel-actions button { padding: 9px 16px; border-radius: 6px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .panel-actions button.primary { background: var(--ink); color: #fff; }
+  .panel-actions button.cancel { background: var(--paper); color: var(--text); }
+  .panel-result { margin-top: 12px; font-size: 12.5px; padding: 8px 10px; border-radius: 5px; }
+  .panel-result.ok { background: var(--verified-bg); color: var(--verified); }
+  .panel-result.err { background: var(--unverified-bg); color: var(--unverified); }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <aside>
+    <div>
+      <div class="brand">Libra<span class="brand-mark">Assist</span></div>
+      <div class="brand-sub">Case console · v2</div>
+    </div>
+
+    <div class="tabbar">
+      <button class="active" data-tab="controls" onclick="switchTab('controls')">Controls</button>
+      <button data-tab="biblio" onclick="switchTab('biblio')">Bibliography</button>
+    </div>
+
+    <div class="tab-panel active" id="tab-controls">
+      <div class="field">
+        <label for="apiBase">Backend URL</label>
+        <input type="text" id="apiBase" value="http://localhost:7799" />
+      </div>
+
+      <div class="field">
+        <label for="persona">Persona</label>
+        <select id="persona"></select>
+        <div class="field-hint" id="personaDesc">Loading personas…</div>
+      </div>
+
+      <div class="toggle-row">
+        <span>Compare two personas</span>
+        <label class="switch">
+          <input type="checkbox" id="compareMode" onchange="toggleCompareField()" />
+          <span class="track"></span>
+        </label>
+      </div>
+      <div class="field" id="comparePersonaField" style="display:none;">
+        <label for="personaB">Compare against</label>
+        <select id="personaB"></select>
+      </div>
+
+      <div class="toggle-row">
+        <span>Use RAG (grounded answers)</span>
+        <label class="switch">
+          <input type="checkbox" id="useRag" checked />
+          <span class="track"></span>
+        </label>
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label for="topK">Top K</label>
+          <input type="number" id="topK" value="3" min="1" max="10" />
+        </div>
+        <div class="field">
+          <label for="minScore">Min score</label>
+          <input type="number" id="minScore" value="" step="0.05" min="0" max="1" placeholder="none" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="effectiveAfter">Only docs effective on/after</label>
+        <input type="text" id="effectiveAfter" placeholder="YYYY-MM-DD (optional)" />
+      </div>
+
+      <button class="ghost" onclick="clearConversation()">＋ New case</button>
+      <button class="ghost" onclick="openIngest()">📄 Add a document</button>
+      <button class="ghost" onclick="exportMarkdown()">⬇ Export as Markdown</button>
+    </div>
+
+    <div class="tab-panel" id="tab-biblio">
+      <div id="biblioList" class="biblio-empty">No sources cited yet this session — ask a grounded question and they'll collect here.</div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="status-pill" id="statusPill"><span class="dot unknown"></span> checking backend…</div>
+    </div>
+  </aside>
+
+  <main>
+    <div class="desk-header">
+      <div>
+        <h1 id="headerPersonaName">Libra Assist</h1>
+        <div class="tagline">MORTGAGE ADVISORY · CASE FILE</div>
+      </div>
+      <div class="desk-actions">
+        <button id="compareBadgeBtn" style="display:none;" class="compare-on" onclick="document.getElementById('compareMode').click(); toggleCompareField();">⇄ comparing</button>
+      </div>
+    </div>
+
+    <div class="chat-scroll" id="chatScroll">
+      <div class="chat-inner" id="chatInner">
+        <div class="empty-state" id="emptyState">
+          <h2>Open a case</h2>
+          <p>Ask about the mortgage corpus, or try one of these:</p>
+          <div class="example-chips">
+            <div class="chip" onclick="useExample(this)">What is the early repayment fee under the current schedule?</div>
+            <div class="chip" onclick="useExample(this)">As a first-time buyer, what's my minimum down payment?</div>
+            <div class="chip" onclick="useExample(this)">What is the interest rate on your student loans?</div>
+            <div class="chip" onclick="useExample(this)">What happens if I miss a payment by 10 days?</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="composer">
+      <div class="composer-inner">
+        <textarea id="question" placeholder="Ask a question…" rows="1"></textarea>
+        <button id="send" onclick="sendQuestion()">Send</button>
+      </div>
+      <div class="composer-hint">/ask is stateless — this console resends recent turns as context on every message</div>
+    </div>
+  </main>
+</div>
+
+<div class="overlay" id="ingestOverlay">
+  <div class="panel">
+    <h3>Add a document</h3>
+    <p class="hint">Chunks, embeds, and stores this text — the same thing the loader script does, one document at a time.</p>
+    <label for="ingText">Text</label>
+    <textarea id="ingText" placeholder="Paste the document body here…"></textarea>
+    <label for="ingSource">Source label</label>
+    <input type="text" id="ingSource" placeholder="e.g. new-fee-policy" />
+    <label for="ingStrategy">Chunking strategy</label>
+    <select id="ingStrategy">
+      <option value="dynamic" selected>dynamic</option>
+      <option value="static">static</option>
+      <option value="sentence">sentence</option>
+      <option value="semantic">semantic</option>
+    </select>
+    <div class="panel-actions">
+      <button class="primary" onclick="submitIngest()">Ingest</button>
+      <button class="cancel" onclick="closeIngest()">Cancel</button>
+    </div>
+    <div id="ingestResult"></div>
+  </div>
+</div>
+
+<script>
+  // =========================================================
+  // State — all in memory. No localStorage/sessionStorage: a
+  // fresh page load is a fresh case, on purpose (see README).
+  // =========================================================
+  let history = [];          // [{ role, text, meta, compareMeta }]
+  let personas = [];
+  let citedDocs = new Map();  // key: source -> { title, product, effective, version, count }
+
+  function apiBase() { return document.getElementById("apiBase").value.replace(/\/$/, ""); }
+
+  async function callApi(path, options = {}) {
+    const res = await fetch(apiBase() + path, options);
+    const raw = await res.text();
+    let body;
+    try { body = raw ? JSON.parse(raw) : {}; } catch { body = { raw }; }
+    if (!res.ok) {
+      const detail = body.detail || body.message || JSON.stringify(body);
+      throw new Error(`${res.status} — ${detail}`);
+    }
+    return body;
+  }
+
+  // ---------------------------------------------------------
+  // Tabs
+  // ---------------------------------------------------------
+  function switchTab(name) {
+    document.querySelectorAll(".tabbar button").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
+    document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+    document.getElementById("tab-" + name).classList.add("active");
+  }
+
+  function toggleCompareField() {
+    const on = document.getElementById("compareMode").checked;
+    document.getElementById("comparePersonaField").style.display = on ? "block" : "none";
+    document.getElementById("compareBadgeBtn").style.display = on ? "inline-block" : "none";
+  }
+
+  // ---------------------------------------------------------
+  // Startup
+  // ---------------------------------------------------------
+  async function loadPersonas() {
+    const selA = document.getElementById("persona");
+    const selB = document.getElementById("personaB");
+    try {
+      const data = await callApi("/agents");
+      personas = data.personas || [];
+      const opts = personas.map(p => `<option value="${p.name}">${p.display_name}</option>`).join("");
+      selA.innerHTML = opts;
+      selB.innerHTML = opts;
+      if (personas.length > 1) selB.selectedIndex = 1;
+      updatePersonaDesc();
+      selA.onchange = () => { updatePersonaDesc(); updateHeaderPersona(); };
+      updateHeaderPersona();
+    } catch (err) {
+      selA.innerHTML = `<option value="default">default</option>`;
+      document.getElementById("personaDesc").textContent = "Could not load personas — check the backend URL.";
+    }
+  }
+
+  function updatePersonaDesc() {
+    const p = personas.find(p => p.name === document.getElementById("persona").value);
+    document.getElementById("personaDesc").textContent = p ? p.description : "";
+  }
+  function updateHeaderPersona() {
+    const p = personas.find(p => p.name === document.getElementById("persona").value);
+    document.getElementById("headerPersonaName").textContent = p ? p.display_name : "Libra Assist";
+  }
+
+  async function checkHealth() {
+    const pill = document.getElementById("statusPill");
+    try {
+      const h = await callApi("/health");
+      const up = h.qdrant === "ok";
+      pill.innerHTML = `<span class="dot ${up ? "up" : "down"}"></span> qdrant: ${h.qdrant} · ${h.llm?.provider || "?"}/${h.llm?.model || "?"}`;
+    } catch {
+      pill.innerHTML = `<span class="dot down"></span> backend unreachable`;
+    }
+  }
+
+  loadPersonas();
+  checkHealth();
+  setInterval(checkHealth, 15000);
+
+  // ---------------------------------------------------------
+  // Conversation
+  // ---------------------------------------------------------
+  function clearConversation() {
+    history = [];
+    citedDocs.clear();
+    renderBiblio();
+    render();
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function useExample(el) {
+    document.getElementById("question").value = el.textContent;
+    sendQuestion();
+  }
+
+  // The backend has no memory between calls — this is the frontend's
+  // job to fake, per the assignment's own note. We carry the last few
+  // exchanges forward inside the question text itself.
+  function buildQuestionWithContext(newQuestion) {
+    const recent = history.slice(-6).filter(m => !m.compareMeta); // skip compare turns, too noisy to replay
+    if (recent.length === 0) return newQuestion;
+    const transcript = recent.map(m => `${m.role === "user" ? "User" : "Assistant"}: ${m.text}`).join("\n");
+    return `Previous conversation:\n${transcript}\n\nNew question: ${newQuestion}`;
+  }
+
+  async function askOne(question, personaName) {
+    const useRag = document.getElementById("useRag").checked;
+    const topK = Number(document.getElementById("topK").value) || 3;
+    const minScoreRaw = document.getElementById("minScore").value;
+    const effectiveAfter = document.getElementById("effectiveAfter").value.trim();
+
+    const payload = {
+      question: buildQuestionWithContext(question),
+      use_rag: useRag, top_k: topK, agent: personaName, agent_mode: "local",
+    };
+    if (minScoreRaw !== "") payload.min_score = Number(minScoreRaw);
+    if (effectiveAfter !== "") payload.effective_after = effectiveAfter;
+
+    return callApi("/ask", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+    });
+  }
+
+  function trackCitations(retrieved) {
+    (retrieved || []).forEach(r => {
+      const key = r.source || r.title || "unknown";
+      const existing = citedDocs.get(key);
+      if (existing) { existing.count += 1; }
+      else citedDocs.set(key, { title: r.title || key, effective: r.effective, version: r.version, count: 1 });
+    });
+    renderBiblio();
+  }
+
+  function renderBiblio() {
+    const el = document.getElementById("biblioList");
+    if (citedDocs.size === 0) {
+      el.className = "biblio-empty";
+      el.textContent = "No sources cited yet this session — ask a grounded question and they'll collect here.";
+      return;
+    }
+    el.className = "";
+    const items = [...citedDocs.values()].sort((a, b) => b.count - a.count);
+    el.innerHTML = items.map(d => `
+      <div class="biblio-item" style="margin-bottom:8px;">
+        <div class="title">${escapeHtml(d.title)}</div>
+        <div class="meta">cited ${d.count}×${d.effective ? ` · effective ${d.effective}` : ""}${d.version ? ` · v${d.version}` : ""}</div>
+      </div>
+    `).join("");
+  }
+
+  async function sendQuestion() {
+    const input = document.getElementById("question");
+    const question = input.value.trim();
+    if (!question) return;
+
+    history.push({ role: "user", text: question });
+    render();
+    input.value = "";
+    input.style.height = "auto";
+
+    const sendBtn = document.getElementById("send");
+    sendBtn.disabled = true;
+    renderThinking(true);
+
+    const compareOn = document.getElementById("compareMode").checked;
+
+    try {
+      if (compareOn) {
+        const nameA = document.getElementById("persona").value;
+        const nameB = document.getElementById("personaB").value;
+        const [resA, resB] = await Promise.all([askOne(question, nameA), askOne(question, nameB)]);
+        trackCitations(resA.retrieved); trackCitations(resB.retrieved);
+        history.push({ role: "assistant", compareMeta: [resA, resB] });
+      } else {
+        const result = await askOne(question, document.getElementById("persona").value);
+        trackCitations(result.retrieved);
+        history.push({ role: "assistant", text: result.answer, meta: result });
+      }
+    } catch (err) {
+      history.push({ role: "assistant", text: `Something went wrong talking to the backend: ${err.message}`, meta: { error: true } });
+    } finally {
+      sendBtn.disabled = false;
+      renderThinking(false);
+      render();
+    }
+  }
+
+  document.getElementById("question").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendQuestion(); }
+  });
+  document.getElementById("question").addEventListener("input", function () {
+    this.style.height = "auto";
+    this.style.height = Math.min(this.scrollHeight, 160) + "px";
+  });
+
+  function renderThinking(on) {
+    const inner = document.getElementById("chatInner");
+    let el = document.getElementById("thinkingRow");
+    if (on && !el) {
+      el = document.createElement("div");
+      el.id = "thinkingRow";
+      el.className = "msg assistant";
+      el.innerHTML = `<div class="memo thinking">Libra Assist is thinking…</div>`;
+      inner.appendChild(el);
+      document.getElementById("chatScroll").scrollTop = 999999;
+    } else if (!on && el) {
+      el.remove();
+    }
+  }
+
+  function render() {
+    const inner = document.getElementById("chatInner");
+    const empty = document.getElementById("emptyState");
+    inner.innerHTML = "";
+    if (history.length === 0) { inner.appendChild(empty); return; }
+    history.forEach(m => {
+      const row = document.createElement("div");
+      row.className = `msg ${m.role}`;
+      if (m.role === "user") {
+        row.innerHTML = `<div class="bubble-user">${escapeHtml(m.text)}</div>`;
+      } else if (m.compareMeta) {
+        row.style.width = "100%";
+        const [a, b] = m.compareMeta;
+        row.innerHTML = `<div class="compare-row">${memoHtml(a)}${memoHtml(b)}</div>`;
+      } else {
+        row.innerHTML = memoHtml(m.meta, m.text);
+      }
+      inner.appendChild(row);
+    });
+    document.getElementById("chatScroll").scrollTop = 999999;
+  }
+
+  // The stamp is the whole point: grounded, not-found, and
+  // deliberately-ungrounded answers must never look the same.
+  function memoHtml(meta, textOverride) {
+    meta = meta || {};
+    const text = textOverride !== undefined ? textOverride : (meta.answer || "");
+
+    if (meta.error) {
+      return `<div class="memo"><div>${escapeHtml(text)}</div></div>`;
+    }
+
+    const augmented = !!meta.augmented;
+    const retrieved = meta.retrieved || [];
+    const noContext = augmented && retrieved.length === 0;
+    const stampClass = noContext ? "unverified" : augmented ? "verified" : "ungrounded";
+    const stampText = noContext ? "Not found" : augmented ? "Grounded & cited" : "Ungrounded by choice";
+
+    let html = `<div class="memo">`;
+    html += `<div class="stamp ${stampClass}">${stampText}</div>`;
+    if (meta.agent) html += `<div class="persona-tag">${escapeHtml(meta.agent.display_name || meta.agent.name)}</div>`;
+    html += `<div>${escapeHtml(text).replace(/\n/g, "<br>")}</div>`;
+
+    if (noContext) {
+      html += `<div class="honest-note unverified">No passages cleared the score threshold for this question — this answer is unverified against the knowledge base, not grounded fact.</div>`;
+    } else if (!augmented) {
+      html += `<div class="honest-note ungrounded">RAG was off for this answer — the model used its own knowledge, not the bank's documents.</div>`;
+    }
+
+    html += `<div class="memo-meta">`;
+    if (meta.model) html += `<span>${escapeHtml(meta.model)}</span>`;
+    if (meta.agent?.mode) html += `<span>${escapeHtml(meta.agent.mode)}</span>`;
+    if (meta.usage) html += `<span>${meta.usage.prompt_tokens}↑ ${meta.usage.completion_tokens}↓ tok</span>`;
+    html += `</div>`;
+
+    if (retrieved.length > 0) {
+      html += `<details class="sources"><summary>${retrieved.length} source${retrieved.length > 1 ? "s" : ""}</summary>`;
+      retrieved.forEach(r => {
+        html += `<div class="source-item">
+          <div class="meta"><b>${escapeHtml(r.title || r.source || "untitled")}</b> · score ${r.score?.toFixed(4)}${r.effective ? ` · ${r.effective}` : ""}${r.version ? ` · v${r.version}` : ""}</div>
+          <div>${escapeHtml(r.text)}</div>
+        </div>`;
+      });
+      html += `</details>`;
+    }
+    if (meta.prompt_sent) {
+      html += `<details class="prompt"><summary>exact prompt sent</summary><pre>${escapeHtml(meta.prompt_sent)}</pre></details>`;
+    }
+    html += `</div>`;
+    return html;
+  }
+
+  // ---------------------------------------------------------
+  // Export — a plain download, no browser storage involved.
+  // ---------------------------------------------------------
+  function exportMarkdown() {
+    if (history.length === 0) return;
+    let md = `# Libra Assist — case transcript\n\n`;
+    history.forEach(m => {
+      if (m.role === "user") {
+        md += `**Q:** ${m.text}\n\n`;
+      } else if (m.compareMeta) {
+        m.compareMeta.forEach(meta => {
+          md += `**${meta.agent?.display_name || "Assistant"}:** ${meta.answer}\n\n`;
+        });
+      } else {
+        const meta = m.meta || {};
+        md += `**${meta.agent?.display_name || "Assistant"}:** ${m.text}\n\n`;
+        if ((meta.retrieved || []).length) {
+          md += meta.retrieved.map(r => `> [${r.title || r.source}] score ${r.score?.toFixed(3)}`).join("\n") + "\n\n";
+        }
+      }
+    });
+    const blob = new Blob([md], { type: "text/markdown" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "libra-assist-case.md";
+    a.click();
+  }
+
+  // ---------------------------------------------------------
+  // Ingestion panel
+  // ---------------------------------------------------------
+  function openIngest() { document.getElementById("ingestOverlay").classList.add("open"); }
+  function closeIngest() {
+    document.getElementById("ingestOverlay").classList.remove("open");
+    document.getElementById("ingestResult").innerHTML = "";
+  }
+  async function submitIngest() {
+    const text = document.getElementById("ingText").value.trim();
+    const source = document.getElementById("ingSource").value.trim() || "console-adhoc";
+    const strategy = document.getElementById("ingStrategy").value;
+    const out = document.getElementById("ingestResult");
+    out.innerHTML = "";
+    if (!text) { out.innerHTML = `<div class="panel-result err">Paste some text first.</div>`; return; }
+    try {
+      const result = await callApi("/ingest", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, strategy, source }),
+      });
+      out.innerHTML = `<div class="panel-result ok">Stored ${result.count} chunk(s) under source "${source}".</div>`;
+    } catch (err) {
+      out.innerHTML = `<div class="panel-result err">${escapeHtml(err.message)}</div>`;
+    }
+  }
+</script>
+
+</body>
+</html>
