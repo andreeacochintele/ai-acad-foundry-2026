@@ -178,4 +178,37 @@ what it was given was occasionally incomplete.
 
 ## What's still wrong / next steps
 
-<!-- TODO -->
+**Round 2 (`data/questions-round2.md`), run after adding documents 17–25 and
+renaming Libra Bank → Moch Bank:** 16 new questions, scored **11/16 correct, 1
+partial, 4 wrong** (D5, E1, E2, F2) — worse than round 1's 14/15. All four
+misses trace to `22-non-resident-borrower-eligibility.md` never being
+retrieved by any of the 4 questions that depended on it, despite the needed
+fact sitting in that document's very first paragraph. In every miss the model
+refused to invent an answer (no hallucination), but produced an unhelpful
+"not specified" instead of the firm, correct answer the corpus actually
+contains.
+
+Round 2's questions are all in Romanian against an English-only corpus
+(round 1 was English-on-English), so I re-ran the same 4 failing questions
+translated to English to isolate the cause — and the results split cleanly:
+- **D5 and E1 were a language effect, not a chunking bug.** In English, D5's
+  question retrieves `22-non-resident-borrower-eligibility` as the top hit
+  (score 0.71, vs. never appearing in the Romanian run), and E1 retrieves
+  both documents it needed (`22` and `15-first-time-buyer-program`). Same
+  corpus, same chunks — only the query's language changed. Cross-lingual
+  (RO query → EN corpus) semantic retrieval is measurably weaker here than
+  same-language retrieval with `text-embedding-3-small`.
+- **E2 and F2 are a genuine retrieval bug, language-independent.** Re-run in
+  English, both *still* return 4 chunks from `20-green-mortgage-discount`
+  only — `21-buy-to-let-mortgage` and `22`'s non-resident exclusion never
+  surface, even in English. Both questions combine a strong single-topic
+  match (green mortgage discount) with a secondary cross-reference living in
+  a *different* document (an exclusion clause) — the dominant topic wins all
+  `top_k` slots and crowds out the smaller, more specific mention every time.
+  This is the actual gap: a query that names one product prominently and
+  another only as a qualifier will starve the qualifier's document of any
+  retrieved chunks at all, regardless of language.
+
+Next step: for E2/F2-shaped questions, retrieving per-document (top-1 from
+each of the top-N *distinct* sources) instead of pure top-k by score would
+likely fix this without touching the language issue.
