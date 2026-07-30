@@ -425,6 +425,23 @@ class TranscribeResponse(BaseModel):
     language: Optional[str] = None
 
 
+# --- sessions -------------------------------------------------------------
+class ChatMessage(BaseModel):
+    role: Literal["user", "bot", "err"]
+    text: Optional[str] = None
+    data: Optional[dict] = Field(None, description="Full /ask response, for role='bot'")
+
+
+class SessionSave(BaseModel):
+    id: Optional[str] = Field(None, description="Omit to create a new session")
+    title: str = ""
+    agent: str = "default"
+    use_rag: bool = True
+    mode: str = "local"
+    messages: list[ChatMessage] = Field(default_factory=list)
+    created_at: Optional[float] = Field(None, description="epoch ms — set on first save, kept after")
+
+
 # --- ops ----------------------------------------------------------------------
 class CollectionInfo(BaseModel):
     exists: bool

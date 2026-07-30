@@ -14,7 +14,9 @@ async function request(path, { method = 'GET', body, raw = false } = {}) {
       const data = await response.json()
       if (data.detail) detail = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)
     } catch { /* non-JSON error body */ }
-    throw new Error(detail)
+    const err = new Error(detail)
+    err.status = response.status
+    throw err
   }
   return raw ? response.blob() : response.json()
 }
@@ -39,11 +41,20 @@ export const api = {
 
   azure: () => request('/azure'),
 
+  sessions: {
+    list: () => request('/sessions'),
+    get: (id) => request(`/sessions/${encodeURIComponent(id)}`),
+    save: (payload) => request('/sessions', { method: 'POST', body: payload }),
+    remove: (id) => request(`/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    exportMarkdown: (id) => request(`/sessions/${encodeURIComponent(id)}/export`, { raw: true }),
+  },
+
   webFetch: (payload) => request('/tools/web-fetch', { method: 'POST', body: payload }),
   speak: (payload) => request('/tools/speak', { method: 'POST', body: payload, raw: true }),
-  transcribe: async (file) => {
+  transcribe: async (file, language) => {
     const form = new FormData()
     form.append('file', file)
+    if (language) form.append('language', language)
     const response = await fetch('/tools/transcribe', { method: 'POST', body: form })
     if (!response.ok) {
       const data = await response.json().catch(() => ({}))

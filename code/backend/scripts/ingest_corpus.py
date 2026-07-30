@@ -74,8 +74,8 @@ def load_documents(data_dir: Path) -> list[tuple[str, dict, str]]:
     """Return (source, metadata, body) for every .md file directly in data_dir."""
     docs = []
     for path in sorted(data_dir.glob("*.md")):
-        if path.name.lower() == "readme.md":
-            continue  # documentation about the corpus, not part of it
+        if path.name.lower() in ("readme.md", "questions.md"):
+            continue  # documentation/eval material about the corpus, not part of it
         raw = path.read_text(encoding="utf-8")
         meta, body = parse_front_matter(raw)
         if not body.strip():

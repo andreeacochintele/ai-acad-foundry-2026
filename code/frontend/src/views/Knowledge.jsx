@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
-import { ChunkList, Err, Head, Hits, RawJson, Spinner } from '../components'
+import { ChunkList, Err, PageHeader, Panel, PanelGrid, RawJson, Spinner } from '../components'
 
 const SAMPLE = `Libra Bank issues debit and credit cards to retail customers. A card is blocked automatically after three failed PIN attempts, after the fraud engine flags a suspicious transaction, or at the customer's own request in the mobile application. A blocked card is unblocked in the branch after identity verification, or through the call centre using the phone banking password.
 
@@ -46,13 +46,13 @@ export default function Knowledge() {
 
   return (
     <>
-      <Head title="Knowledge">
+      <PageHeader title="Knowledge">
         Split a document into chunks and store them as vectors. Chunking is the highest-leverage
         decision in a RAG pipeline — compare the strategies on the same text and watch the
         boundaries move.
-      </Head>
+      </PageHeader>
 
-      <div className="card">
+      <Panel>
         <label>Document</label>
         <textarea value={text} onChange={(e) => setText(e.target.value)} style={{ minHeight: 160 }} />
 
@@ -84,41 +84,41 @@ export default function Knowledge() {
           <div className="shrink" style={{ alignSelf: 'center' }}>{busy && <Spinner label={busy} />}</div>
         </div>
         <Err error={error} />
-      </div>
+      </Panel>
 
-      {preview && (
-        <div className="card">
-          <h3>{preview.count} chunks · strategy “{preview.strategy}” <span className="faint">(nothing stored)</span></h3>
-          <ChunkList chunks={preview.chunks} />
-          <RawJson data={preview} />
-        </div>
-      )}
+      <PanelGrid>
+        {preview && (
+          <Panel title={`${preview.count} chunks · strategy “${preview.strategy}”`}
+                 actions={<span className="faint">(nothing stored)</span>}>
+            <ChunkList chunks={preview.chunks} />
+            <RawJson data={preview} />
+          </Panel>
+        )}
 
-      {ingested && (
-        <div className="card">
-          <h3>Stored {ingested.count} chunks</h3>
-          <p className="muted" style={{ marginTop: 0 }}>
-            Embedded with <code>{ingested.embedding_model.model}</code> into{' '}
-            <strong>{ingested.vector_dimension}</strong> dimensions. First eight numbers of chunk 0:
-          </p>
-          <pre className="out">{JSON.stringify(ingested.embedding_preview)}</pre>
-          <ChunkList chunks={ingested.chunks} />
-          <RawJson data={ingested} />
-        </div>
-      )}
+        {ingested && (
+          <Panel title={`Stored ${ingested.count} chunks`}>
+            <p className="muted" style={{ marginTop: 0 }}>
+              Embedded with <code>{ingested.embedding_model.model}</code> into{' '}
+              <strong>{ingested.vector_dimension}</strong> dimensions. First eight numbers of chunk 0:
+            </p>
+            <pre className="out">{JSON.stringify(ingested.embedding_preview)}</pre>
+            <ChunkList chunks={ingested.chunks} />
+            <RawJson data={ingested} />
+          </Panel>
+        )}
 
-      <div className="card">
-        <h3>Collection</h3>
-        {collection ? (
-          <div className="row">
-            <div><label>name</label><div className="mono">{collection.name}</div></div>
-            <div><label>points</label><div className="mono">{collection.points_count}</div></div>
-            <div><label>dimensions</label><div className="mono">{collection.vector_dimension ?? '—'}</div></div>
-            <div><label>distance</label><div className="mono">{collection.distance ?? '—'}</div></div>
-            <button className="btn btn-outline shrink" onClick={reset} disabled={!!busy}>Reset collection</button>
-          </div>
-        ) : <p className="faint">Vector store unreachable — is Qdrant running?</p>}
-      </div>
+        <Panel title="Collection">
+          {collection ? (
+            <div className="row">
+              <div><label>name</label><div className="mono">{collection.name}</div></div>
+              <div><label>points</label><div className="mono">{collection.points_count}</div></div>
+              <div><label>dimensions</label><div className="mono">{collection.vector_dimension ?? '—'}</div></div>
+              <div><label>distance</label><div className="mono">{collection.distance ?? '—'}</div></div>
+              <button className="btn btn-outline shrink" onClick={reset} disabled={!!busy}>Reset collection</button>
+            </div>
+          ) : <p className="faint">Vector store unreachable — is Qdrant running?</p>}
+        </Panel>
+      </PanelGrid>
     </>
   )
 }

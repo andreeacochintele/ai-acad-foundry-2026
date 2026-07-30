@@ -1,6 +1,16 @@
 import { useState } from 'react'
 import { api } from '../api'
-import { Err, Head, RawJson, RUNS_ON, RunsOnBadge, Spinner } from '../components'
+import { Err, PageHeader, Panel, RawJson, RUNS_ON, RunsOnBadge, Spinner, StatGrid, StatTile } from '../components'
+
+const COUNT_ICON = <><rect x="4" y="8" width="16" height="12" rx="2" /><path d="M12 8V4H9" /></>
+function CountIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+         strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {COUNT_ICON}
+    </svg>
+  )
+}
 
 export default function Agents({ agents, hostedOnly = [], foundry, reload, azure }) {
   const [detail, setDetail] = useState(null)
@@ -10,6 +20,11 @@ export default function Agents({ agents, hostedOnly = [], foundry, reload, azure
   const [confirming, setConfirming] = useState(null)
 
   const all = [...agents, ...hostedOnly]
+  const counts = {
+    local: all.filter((a) => a.runs_on === 'local').length,
+    both: all.filter((a) => a.runs_on === 'both').length,
+    foundry: all.filter((a) => a.runs_on === 'foundry').length,
+  }
 
   async function act(name, fn, done) {
     setBusy(name); setError(null); setNotice(null)
@@ -25,23 +40,27 @@ export default function Agents({ agents, hostedOnly = [], foundry, reload, azure
 
   return (
     <>
-      <Head title="Agents">
+      <PageHeader title="Agents">
         Each agent is a JSON file in <code>app/agents/personas/</code> — edit one, save, and the
         next answer changes. The badge tells you <strong>where each one can run</strong>: on this
         machine, in Azure, or both.
-      </Head>
+      </PageHeader>
 
-      <div className="card">
-        <div className="row" style={{ marginBottom: '.7rem' }}>
-          <h3 style={{ margin: 0 }}>{all.length} agents</h3>
-          <button className="btn btn-outline btn-sm shrink" onClick={reload}>refresh</button>
-          {azure?.foundry_url && (
-            <a className="btn btn-outline btn-sm shrink" href={azure.foundry_url} target="_blank" rel="noreferrer">
-              open Foundry portal ↗
-            </a>
-          )}
-        </div>
+      <StatGrid>
+        <StatTile icon={<CountIcon />} label="total agents" value={all.length} />
+        <StatTile icon={<CountIcon />} label="local only" value={counts.local} />
+        <StatTile icon={<CountIcon />} label="local + Foundry" value={counts.both} />
+        <StatTile icon={<CountIcon />} label="Foundry only" value={counts.foundry} />
+      </StatGrid>
 
+      <Panel actions={<>
+        <button className="btn btn-outline btn-sm" onClick={reload}>refresh</button>
+        {azure?.foundry_url && (
+          <a className="btn btn-outline btn-sm" href={azure.foundry_url} target="_blank" rel="noreferrer">
+            open Foundry portal ↗
+          </a>
+        )}
+      </>}>
         <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', marginBottom: '.9rem' }}>
           {Object.entries(RUNS_ON).map(([k, s]) => (
             <span key={k} className="faint" style={{ display: 'inline-flex', alignItems: 'center', gap: '.35rem' }}>
@@ -134,18 +153,17 @@ export default function Agents({ agents, hostedOnly = [], foundry, reload, azure
           <span className="badge">done</span> <span className="mono">{notice}</span>
         </div>}
         <Err error={error} />
-      </div>
+      </Panel>
 
       {detail && (
-        <div className="card">
-          <h3>{detail.display_name} — the prompt this JSON produces</h3>
+        <Panel title={`${detail.display_name} — the prompt this JSON produces`}>
           <p className="faint" style={{ marginTop: 0 }}>{detail.file}</p>
           <label style={{ marginTop: '.6rem' }}>grounded (retrieval supplied context)</label>
           <pre className="out">{detail.system_prompt_grounded}</pre>
           <label style={{ marginTop: '.8rem' }}>plain (no retrieval)</label>
           <pre className="out">{detail.system_prompt_plain}</pre>
           <RawJson data={detail} label="persona JSON" />
-        </div>
+        </Panel>
       )}
     </>
   )

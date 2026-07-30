@@ -5,12 +5,13 @@ Swagger UI:  /docs        ReDoc: /redoc
 """
 from __future__ import annotations
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
 from . import chunking
 from . import rag
+from . import sessions as sessions_store
 from .agents import foundry_agent, local_agent
 from .agents.persona import PersonaNotFound, available_names, load_persona, list_personas, PERSONA_DIR
 from .config import settings
@@ -20,12 +21,13 @@ from .schemas import (
     AgentInfo, AgentListResponse, AskRequest, AskResponse, AzureDeployment, AzureDeployments,
     AzureStatus, ChunkInfo, ChunkRequest, ChunkResponse, CollectionInfo, FoundryAvailability,
     Health, HostedAgent, IngestRequest, IngestResponse, PersonaSummary, ScrapeRequest,
-    ScrapeResponse, SearchHit, SearchRequest, SearchResponse, SpeakRequest,
+    ScrapeResponse, SearchHit, SearchRequest, SearchResponse, SessionSave, SpeakRequest,
     TranscribeResponse, Usage, WebSearchHit, WebSearchRequest, WebSearchResponse,
     FactCheckRequest, FactCheckResponse, FactCheckSource, FactCheckVerdict,
     AzureSearchQueryRequest, AzureSearchSyncRequest,
 )
 from .services import aisearch, speech, web
+from .sessions import InvalidSessionId, SessionNotFound
 from .vectorstore import DimensionMismatch, VectorStore
 
 app = FastAPI(
@@ -835,16 +837,69 @@ def azure_search_status() -> dict:
 
 
 @app.post("/tools/transcribe", response_model=TranscribeResponse, tags=["6 · tools"])
-async def transcribe(file: UploadFile = File(..., description="WAV, 16 kHz mono, under ~60 s")):
+async def transcribe(file: UploadFile = File(..., description="WAV, 16 kHz mono, under ~60 s"),
+                     language: str | None = Form(None, description="e.g. en-US, ro-RO — must match the spoken language or recognition garbles")):
     """Speech → text (Azure AI Speech). Upload the WAV you just generated and
     watch it come back as text — the round trip in two calls."""
     audio = await file.read()
     if not audio:
         raise HTTPException(status_code=422, detail="The uploaded file is empty.")
     try:
-        result = speech.transcribe(audio, content_type=file.content_type or "audio/wav")
+        result = speech.transcribe(audio, content_type=file.content_type or "audio/wav", language=language)
     except speech.SpeechUnavailable as e:
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Transcription failed: {e}")
     return TranscribeResponse(**result)
+
+
+# --- sessions -------------------------------------------------------------
+@app.get("/sessions", tags=["8 · sessions"])
+def sessions_list() -> list[dict]:
+    """Every saved conversation, newest first — read straight off disk."""
+    return sessions_store.list_sessions()
+
+
+@app.get("/sessions/{id}", tags=["8 · sessions"])
+def sessions_get(id: str) -> dict:
+    """Resume one conversation — the exact messages that were saved."""
+    try:
+        return sessions_store.load_session(id)
+    except InvalidSessionId as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except SessionNotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post("/sessions", tags=["8 · sessions"])
+def sessions_save(req: SessionSave) -> dict:
+    """Create or update a conversation. Omit `id` to create a new one."""
+    try:
+        return sessions_store.save_session(req.model_dump())
+    except InvalidSessionId as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+
+@app.delete("/sessions/{id}", tags=["8 · sessions"])
+def sessions_delete(id: str) -> dict:
+    """Remove a conversation's JSON file from disk."""
+    try:
+        sessions_store.delete_session(id)
+    except InvalidSessionId as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except SessionNotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return {"deleted": True, "id": id}
+
+
+@app.get("/sessions/{id}/export", tags=["8 · sessions"])
+def sessions_export(id: str) -> Response:
+    """The conversation as a readable Markdown transcript, ready to download."""
+    try:
+        markdown = sessions_store.export_markdown(id)
+    except InvalidSessionId as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except SessionNotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return Response(content=markdown, media_type="text/markdown",
+                    headers={"Content-Disposition": f'attachment; filename="{id}.md"'})

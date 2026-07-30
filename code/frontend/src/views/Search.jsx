@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { api } from '../api'
-import { Err, Head, Hits, RawJson, Spinner } from '../components'
+import { Err, Hits, PageHeader, Panel, RawJson, Spinner } from '../components'
 
 const EXAMPLES = [
   'my card got frozen, what do I do?',
@@ -24,13 +24,13 @@ export default function Search() {
 
   return (
     <>
-      <Head title="Retrieval">
+      <PageHeader title="Retrieval">
         The query is embedded with the same model as the documents, then compared by cosine
         similarity. Try a paraphrase that shares no words with the source text — and an
         off-topic question, to watch the scores collapse.
-      </Head>
+      </PageHeader>
 
-      <div className="card">
+      <Panel>
         <div className="row">
           <div style={{ flex: 3 }}>
             <label>Query</label>
@@ -48,18 +48,17 @@ export default function Search() {
         </div>
         {busy && <div style={{ marginTop: '.7rem' }}><Spinner label="searching" /></div>}
         <Err error={error} />
-      </div>
+      </Panel>
 
       {result && (
-        <div className="card">
-          <h3>{result.hits.length} hits for “{result.query}”</h3>
+        <Panel title={`${result.hits.length} hits for “${result.query}”`}>
           <p className="faint" style={{ marginTop: 0 }}>
             embedded with <code>{result.embedding_model.model}</code> · query vector starts{' '}
             <span className="mono">[{result.query_embedding_preview.slice(0, 4).join(', ')}…]</span>
           </p>
           <Hits hits={result.hits} />
           <RawJson data={result} />
-        </div>
+        </Panel>
       )}
     </>
   )

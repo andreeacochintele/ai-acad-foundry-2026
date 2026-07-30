@@ -1,6 +1,22 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
-import { Err, Head, RawJson, Spinner } from '../components'
+import { Err, PageHeader, Panel, RawJson, Spinner, StatGrid, StatTile } from '../components'
+
+const STAT_ICONS = {
+  api: <><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></>,
+  vector: <><path d="M2 4h5a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5H2z" /><path d="M22 4h-5a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5H22z" /></>,
+  model: <><rect x="4" y="8" width="16" height="12" rx="2" /><path d="M12 8V4H9" /></>,
+  embed: <><circle cx="11" cy="11" r="7" /><path d="m20 20-3.6-3.6" /></>,
+  agent: <><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.4-3.4a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 1 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z" /></>,
+}
+function StatIcon({ name }) {
+  return (
+    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+         strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {STAT_ICONS[name]}
+    </svg>
+  )
+}
 
 export default function Status({ health, reload, azure, reloadAzure }) {
   const [config, setConfig] = useState(null)
@@ -11,61 +27,46 @@ export default function Status({ health, reload, azure, reloadAzure }) {
     api.config().then(setConfig).catch((e) => setError(e.message)).finally(() => setBusy(false))
   }, [])
 
-  const rows = health ? [
-    ['API', health.status, health.status === 'ok'],
-    ['Vector store', `${health.qdrant} · ${health.qdrant_url}`, health.qdrant === 'ok'],
-    ['Chat model', `${health.llm.provider} · ${health.llm.model}`, true],
-    ['Embeddings', `${health.embeddings.provider} · ${health.embeddings.model}`, true],
-    ['Agent mode', `${health.agents?.mode} · default “${health.agents?.default_persona}”`, true],
-    ['Personas', (health.agents?.available || []).join(', ') || '—', true],
-    ['Speech', health.speech?.configured ? `configured · ${health.speech.region}` : 'not configured', !!health.speech?.configured],
+  const tiles = health ? [
+    ['api', 'API', health.status, health.status === 'ok'],
+    ['vector', 'Vector store', `${health.qdrant} · ${health.qdrant_url}`, health.qdrant === 'ok'],
+    ['model', 'Chat model', `${health.llm.provider} · ${health.llm.model}`, true],
+    ['embed', 'Embeddings', `${health.embeddings.provider} · ${health.embeddings.model}`, true],
+    ['agent', 'Agent mode', `${health.agents?.mode} · default “${health.agents?.default_persona}”`, true],
+    ['agent', 'Personas', (health.agents?.available || []).join(', ') || '—', true],
+    ['api', 'Speech', health.speech?.configured ? `configured · ${health.speech.region}` : 'not configured', !!health.speech?.configured],
   ] : []
 
   return (
     <>
-      <Head title="Status">
+      <PageHeader title="Status">
         What this console is talking to. Every value here comes from the backend's own
         <code> /health</code> and <code>/config</code> endpoints.
-      </Head>
+      </PageHeader>
 
-      <div className="card">
-        <div className="row" style={{ marginBottom: '.5rem' }}>
-          <h3 style={{ margin: 0 }}>Health</h3>
-          <button className="btn btn-outline btn-sm shrink" onClick={reload}>refresh</button>
-        </div>
+      <Panel title="Health" actions={<button className="btn btn-outline btn-sm" onClick={reload}>refresh</button>}>
         {health ? (
-          <table>
-            <tbody>
-              {rows.map(([k, v, ok]) => (
-                <tr key={k}>
-                  <td style={{ width: '11rem' }} className="muted">{k}</td>
-                  <td className="mono">{v}</td>
-                  <td style={{ width: '3rem' }}>
-                    <span className={`badge ${ok ? '' : 'crimson'}`}>{ok ? 'ok' : '!'}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <StatGrid>
+            {tiles.map(([icon, k, v, ok]) => (
+              <StatTile key={k} icon={<StatIcon name={icon} />} label={k} value={v} ok={ok} />
+            ))}
+          </StatGrid>
         ) : <p className="faint">Backend unreachable — is it running on port 7799?</p>}
-      </div>
+      </Panel>
 
-      <div className="card">
-        <div className="row" style={{ marginBottom: '.6rem' }}>
-          <h3 style={{ margin: 0 }}>Azure environment</h3>
-          <button className="btn btn-outline btn-sm shrink" onClick={reloadAzure}>refresh</button>
-          {azure?.foundry_url && (
-            <a className="btn btn-outline btn-sm shrink" href={azure.foundry_url} target="_blank" rel="noreferrer">
-              Foundry portal ↗
-            </a>
-          )}
-          {azure?.portal_url && (
-            <a className="btn btn-outline btn-sm shrink" href={azure.portal_url} target="_blank" rel="noreferrer">
-              Azure portal ↗
-            </a>
-          )}
-        </div>
-
+      <Panel title="Azure environment" actions={<>
+        <button className="btn btn-outline btn-sm" onClick={reloadAzure}>refresh</button>
+        {azure?.foundry_url && (
+          <a className="btn btn-outline btn-sm" href={azure.foundry_url} target="_blank" rel="noreferrer">
+            Foundry portal ↗
+          </a>
+        )}
+        {azure?.portal_url && (
+          <a className="btn btn-outline btn-sm" href={azure.portal_url} target="_blank" rel="noreferrer">
+            Azure portal ↗
+          </a>
+        )}
+      </>}>
         {!azure ? <p className="faint">Loading…</p> : !azure.configured ? (
           <p className="faint">No Azure endpoint configured — set <code>AZURE_AI_ENDPOINT</code> in <code>.env</code>.</p>
         ) : (
@@ -125,10 +126,9 @@ export default function Status({ health, reload, azure, reloadAzure }) {
             <RawJson data={azure} label="raw /azure" />
           </>
         )}
-      </div>
+      </Panel>
 
-      <div className="card">
-        <h3>Configuration <span className="faint">(secrets masked by the API)</span></h3>
+      <Panel title="Configuration" actions={<span className="faint">(secrets masked by the API)</span>}>
         {busy && <Spinner label="loading" />}
         <Err error={error} />
         {config && (
@@ -148,7 +148,7 @@ export default function Status({ health, reload, azure, reloadAzure }) {
           </div>
         )}
         <RawJson data={health} label="raw /health" />
-      </div>
+      </Panel>
     </>
   )
 }

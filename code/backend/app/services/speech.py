@@ -100,6 +100,22 @@ def synthesize(text: str, voice: str | None = None) -> bytes:
     return response.content
 
 
+def _stt_content_type(content_type: str) -> str:
+    """Azure's short-audio endpoint wants the codec spelled out in the header.
+
+    A plain WAV upload (Tools view, hand-crafted files) is raw PCM and needs the
+    "codecs=audio/pcm; samplerate=16000" suffix added. A browser's MediaRecorder
+    (the Chat mic button) instead produces a compressed container — its
+    Content-Type already reads e.g. "audio/webm;codecs=opus" — which must be
+    passed through unchanged, since it is already a codec Azure accepts.
+    """
+    if "codecs=" in content_type:
+        return content_type
+    if content_type in ("audio/wav", "audio/x-wav", "audio/wave"):
+        return f"{content_type}; codecs=audio/pcm; samplerate=16000"
+    return content_type
+
+
 def transcribe(audio: bytes, content_type: str = "audio/wav", language: str | None = None) -> dict:
     """Spoken audio -> text. Short-audio endpoint: up to about 60 seconds."""
     key, region = _credentials()
@@ -114,7 +130,7 @@ def transcribe(audio: bytes, content_type: str = "audio/wav", language: str | No
         params={"language": language, "format": "detailed"},
         headers={
             "Ocp-Apim-Subscription-Key": key,
-            "Content-Type": f"{content_type}; codecs=audio/pcm; samplerate=16000",
+            "Content-Type": _stt_content_type(content_type),
             "Accept": "application/json",
         },
         content=audio,

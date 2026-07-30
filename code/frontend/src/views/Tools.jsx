@@ -1,15 +1,21 @@
 import { useState } from 'react'
 import { api } from '../api'
-import { Err, Head, RawJson, Spinner } from '../components'
+import { Err, PageHeader, Panel, PanelGrid, RawJson, Spinner } from '../components'
 
 export default function Tools() {
   // --- web fetch --------------------------------------------------------------
   const [url, setUrl] = useState('https://example.com')
   const [page, setPage] = useState(null)
   // --- speech -----------------------------------------------------------------
+  const VOICES = [
+    { voice: 'en-US-AvaMultilingualNeural', language: 'en-US', label: 'English (Ava)' },
+    { voice: 'ro-RO-AlinaNeural', language: 'ro-RO', label: 'Romanian (Alina)' },
+  ]
   const [text, setText] = useState('Your card was blocked after three failed PIN attempts.')
+  const [voiceIdx, setVoiceIdx] = useState(0)
   const [audio, setAudio] = useState(null)
   const [transcript, setTranscript] = useState(null)
+  const selectedVoice = VOICES[voiceIdx]
 
   const [busy, setBusy] = useState('')
   const [error, setError] = useState(null)
@@ -22,7 +28,7 @@ export default function Tools() {
   async function speak() {
     setBusy('synthesizing'); setError(null)
     try {
-      const blob = await api.speak({ text })
+      const blob = await api.speak({ text, voice: selectedVoice.voice })
       setAudio({ url: URL.createObjectURL(blob), blob, size: blob.size })
     } catch (e) { setError(e.message); setAudio(null) } finally { setBusy('') }
   }
@@ -32,7 +38,7 @@ export default function Tools() {
     setBusy('transcribing'); setError(null)
     try {
       const file = new File([audio.blob], 'libra-assist.wav', { type: 'audio/wav' })
-      setTranscript(await api.transcribe(file))
+      setTranscript(await api.transcribe(file, selectedVoice.language))
     } catch (e) { setError(e.message) } finally { setBusy('') }
   }
 
@@ -40,18 +46,18 @@ export default function Tools() {
     const file = e.target.files?.[0]
     if (!file) return
     setBusy('transcribing'); setError(null)
-    try { setTranscript(await api.transcribe(file)) } catch (err) { setError(err.message) } finally { setBusy('') }
+    try { setTranscript(await api.transcribe(file, selectedVoice.language)) } catch (err) { setError(err.message) } finally { setBusy('') }
   }
 
   return (
     <>
-      <Head title="Tools">
+      <PageHeader title="Tools">
         The capabilities an agent can call — and what they cost to build yourself. Each of these
         is a separate service with its own endpoint and its own permissions.
-      </Head>
+      </PageHeader>
 
-      <div className="card">
-        <h3>Web fetch — the do-it-yourself lane</h3>
+      <PanelGrid>
+      <Panel title="Web fetch — the do-it-yourself lane">
         <p className="muted" style={{ marginTop: 0 }}>
           A plain scraper: fetch, parse, strip to text. Read the warnings — they are everything
           the naive approach could not handle, and the argument for managed grounding.
@@ -84,16 +90,27 @@ export default function Tools() {
             <RawJson data={page} />
           </div>
         )}
-      </div>
+      </Panel>
 
-      <div className="card">
-        <h3>Speech — the voice loop, in two calls</h3>
+      <Panel title="Speech — the voice loop, in two calls">
         <p className="muted" style={{ marginTop: 0 }}>
           Text becomes audio; that audio becomes text again. Needs an Azure Speech resource
           (its own key and region — a different service from the model).
         </p>
         <label>Text to speak</label>
         <textarea value={text} onChange={(e) => setText(e.target.value)} style={{ minHeight: 70 }} />
+        <div className="row" style={{ marginTop: '.6rem' }}>
+          <div className="shrink">
+            <label>Voice / language</label>
+            <select value={voiceIdx} onChange={(e) => setVoiceIdx(Number(e.target.value))} style={{ width: 'auto' }}>
+              {VOICES.map((v, i) => <option key={v.voice} value={i}>{v.label}</option>)}
+            </select>
+          </div>
+        </div>
+        <p className="faint" style={{ margin: '.4rem 0 0' }}>
+          Transcription only reads back correctly if the language here matches what was actually spoken —
+          Azure's speech-to-text needs to know which language model to apply.
+        </p>
         <div className="row" style={{ marginTop: '.7rem' }}>
           <button className="btn btn-primary shrink" onClick={speak} disabled={!!busy}>Synthesize</button>
           <button className="btn btn-outline shrink" onClick={transcribeGenerated} disabled={!!busy || !audio}>
@@ -119,7 +136,8 @@ export default function Tools() {
             </p>
           </div>
         )}
-      </div>
+      </Panel>
+      </PanelGrid>
 
       {busy && <Spinner label={busy} />}
       <Err error={error} />

@@ -6,12 +6,58 @@ the pipeline, each able to reveal its own raw JSON.
 
 | Screen | Shows | Endpoints |
 |---|---|---|
-| **Chat** | The assistant: persona switch, RAG toggle, local/Foundry lane, retrieved passages with scores, and the exact prompt sent | `/ask` |
+| **Chat** | The assistant: persona switch, RAG toggle, local/Foundry lane, temperature and top-K, fact-check, retrieved passages with scores, the exact prompt sent, a mic button to speak the question instead of typing it, per-conversation history saved to disk, and Markdown/JSON export | `/ask`, `/tools/transcribe`, `/sessions/*` |
 | **Knowledge** | Paste a document, compare the four chunking strategies, then embed and store | `/chunk`, `/ingest`, `/collection` |
 | **Retrieval** | A query, its embedding, and the ranked hits with cosine scores | `/search` |
 | **Agents** | Every agent and **where it can run**, the system prompt its JSON produces, deploy/remove in Foundry | `/agents`, `/agents/{name}/deploy`, `/agents/hosted` |
 | **Tools** | The plain web scraper with its warnings; text-to-speech; speech-to-text | `/tools/*` |
 | **Status** | Health, the Azure environment, live model deployments, configuration with secrets masked | `/health`, `/azure`, `/config` |
+
+## Chat settings panel
+
+Agent choice, where it runs (local/Foundry), use-RAG, fact-check, mic language, top-K
+and temperature, plus the export/clear actions, all live behind the gear icon in the
+Chat toolbar instead of cluttering it — click it to open the panel, click anywhere
+outside to close it. Temperature resets to the newly selected persona's own default
+whenever you switch agents, but stays an override otherwise: send it once and it
+sticks until you change agent or edit it again.
+
+## Conversation history
+
+Every conversation is saved to the backend as a JSON file (`GET/POST/DELETE /sessions`)
+on its first message — a fresh "+ New conversation" is not written to disk until it has
+something worth saving. The same state is also mirrored into the browser's
+`localStorage` synchronously, with no network involved, so a message you just sent
+survives a refresh or a flaky backend even before (or if) the save round-trip lands. On
+load, the console reconciles the two: anything with real content that isn't on the
+backend yet gets resent automatically instead of silently vanishing once the backend
+list becomes the source of truth.
+
+**Export** (in the settings panel) builds a Markdown or JSON file directly from the
+conversation already in memory — no backend round-trip, so it works even for a
+conversation the server hasn't (yet) persisted.
+
+## Speaking a question (Chat mic button)
+
+The composer's mic button turns square and pulses red while recording (click again to
+stop), then posts the clip to `POST /tools/transcribe`. The recognized text is appended
+to the question box — nothing is sent automatically, so you can review or edit it
+before hitting send. The mic-language selector in the settings panel (`RO mic` /
+`EN mic`) sets the spoken language passed to Azure Speech; pick the one you're about to
+speak in, since recognition only reads back correctly when it matches.
+
+Recording itself uses the browser's `MediaRecorder`, but before uploading, the console
+re-encodes the clip to a 16 kHz mono WAV via the Web Audio API
+(`decodeAudioData` + `OfflineAudioContext`) rather than sending the raw output. Chromium
+writes `MediaRecorder`'s webm/opus blobs with an unresolved ("unknown") duration in the
+container header; Azure's speech endpoint trusts that header over the actual audio and
+truncates recognition to well under a second regardless of how long you spoke. Decoding
+and re-rendering client-side sidesteps the bad header entirely — the WAV's byte count
+*is* its duration, no ambiguity possible.
+
+Needs `AZURE_SPEECH_KEY`/`AZURE_SPEECH_REGION` (or a Foundry AIServices resource)
+configured on the backend, and microphone permission in the browser; the mic button
+hides itself entirely if `MediaRecorder` isn't available.
 
 ## Where an agent can run
 

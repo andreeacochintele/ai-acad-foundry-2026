@@ -17,7 +17,7 @@ server {
     gzip_min_length 1024;
 
     # --- the API, same-origin ------------------------------------------------
-    location ~ ^/(health|config|azure|chunk|ingest|collection|search|ask|agents|tools) {
+    location ~ ^/(health|config|azure|chunk|ingest|collection|search|ask|agents|tools|sessions) {
         proxy_pass         ${API_URL};
         proxy_http_version 1.1;
         proxy_set_header   Host              $host;

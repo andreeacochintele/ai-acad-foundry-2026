@@ -1,14 +1,56 @@
 import { useState } from 'react'
 
-export function Head({ title, children }) {
+/** Page title + description, with an optional right-aligned actions slot. */
+export function PageHeader({ title, actions, children }) {
   return (
-    <div className="head">
+    <div className="page-head">
       <div>
         <h2>{title}</h2>
         <p>{children}</p>
       </div>
+      {actions && <div className="page-head-actions">{actions}</div>}
     </div>
   )
+}
+
+/** Thin, consistent wrapper over .card — title + optional actions, then content. */
+export function Panel({ title, actions, className = '', children }) {
+  return (
+    <div className={`card panel ${className}`}>
+      {(title || actions) && (
+        <div className="panel-head">
+          {title && <h3>{title}</h3>}
+          {actions && <div className="panel-actions">{actions}</div>}
+        </div>
+      )}
+      {children}
+    </div>
+  )
+}
+
+/** Responsive grid of Panels/cards — the dashboard layout primitive. */
+export function PanelGrid({ children, className = '' }) {
+  return <div className={`panel-grid ${className}`}>{children}</div>
+}
+
+/** One metric — icon, label, value, and an optional status dot. */
+export function StatTile({ icon, label, value, ok, title }) {
+  return (
+    <div className="stat-tile" title={title}>
+      <div className="stat-tile-icon">{icon}</div>
+      <div className="stat-tile-body">
+        <div className="stat-tile-label">
+          {label}
+          {ok !== undefined && <span className={`dot ${ok ? '' : 'bad'}`} />}
+        </div>
+        <div className="stat-tile-value">{value}</div>
+      </div>
+    </div>
+  )
+}
+
+export function StatGrid({ children }) {
+  return <div className="stat-grid">{children}</div>
 }
 
 export function Err({ error }) {

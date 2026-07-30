@@ -51,5 +51,8 @@ code/frontend/dist/
 code/backend/*.log
 code/frontend/*.log
 
+# --- runtime data (chat sessions saved to disk, not source) ---
+code/backend/app/data/
+
 # --- local editor/agent tooling state ---
 .claude/

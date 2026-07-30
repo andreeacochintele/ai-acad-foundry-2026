@@ -309,8 +309,22 @@ API keys are **not accepted** by the Agent Service — it is Entra-only. Set
 ```bash
 POST /tools/web-fetch    # a deliberately plain scraper — read its `warnings` array
 POST /tools/speak        # text → WAV (Azure AI Speech; needs AZURE_SPEECH_KEY/REGION)
-POST /tools/transcribe   # upload a WAV → text
+POST /tools/transcribe   # upload audio → text (WAV, or a browser recording — see below)
 ```
+
+`/tools/transcribe` accepts a plain 16 kHz mono WAV (the Tools view's generate/upload
+demo) **or** a compressed recording straight off a browser's `MediaRecorder` —
+`audio/webm;codecs=opus` or `audio/ogg;codecs=opus`. `content_type` on the upload decides
+which: a bare `audio/wav` gets the `codecs=audio/pcm; samplerate=16000` suffix Azure's
+short-audio endpoint expects for raw PCM, while anything that already names its own
+codec is passed through unchanged (`app/services/speech.py::_stt_content_type`).
+
+The Chat view's mic button actually re-encodes to WAV client-side before uploading,
+rather than sending the raw `MediaRecorder` output — Chromium writes webm/opus blobs
+with an unresolved ("unknown") duration in the container header, which Azure's endpoint
+trusts over the actual audio, truncating recognition to well under a second regardless
+of how long you spoke. Decoding via the Web Audio API and re-rendering to a fixed-rate
+mono WAV sidesteps that header entirely (see `toMono16kWav` in `Chat.jsx`).
 
 `/tools/web-fetch` exists to be honest about scraping: it reports what the naive
 approach could not do (JavaScript rendering, bot walls, consent banners, non-HTML
@@ -320,6 +334,25 @@ Chunking strategies (`strategy` in the request body): `static` (fixed windows),
 `sentence` (N sentences per chunk), `dynamic` (paragraph/sentence-aware packing with
 overlap), `semantic` (sentence embeddings; new chunk where adjacent cosine similarity
 drops below `semantic_threshold` — needs the embedding provider configured).
+
+## Chat sessions
+
+```bash
+GET    /sessions              # every saved conversation, newest first
+GET    /sessions/{id}         # resume one — the exact messages that were saved
+POST   /sessions              # create (omit id) or update a conversation
+DELETE /sessions/{id}         # remove a conversation's JSON file
+GET    /sessions/{id}/export  # download it as a readable Markdown transcript
+```
+
+One JSON file per conversation, in `app/data/sessions/` (`app/sessions.py`) — no
+database, so it's inspectable with a text editor. The Chat view saves on every turn and
+mirrors the same state into the browser's `localStorage` for an instant, offline-first
+copy; on load it reconciles the two, resending anything that never made it to disk.
+The console's own Markdown/JSON export buttons build the file client-side from state
+already in memory rather than calling `/sessions/{id}/export`, so exporting still works
+for a conversation the backend hasn't (yet) persisted — the endpoint above remains
+useful directly (Swagger, scripts, another client).
 
 ## Choosing providers
 

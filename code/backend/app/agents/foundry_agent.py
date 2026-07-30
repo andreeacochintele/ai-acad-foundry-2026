@@ -267,7 +267,7 @@ def run(
             f"Deploy it first — POST /agents/{persona.name}/deploy, or "
             f"`python scripts/deploy_agent.py {persona.name}`."
         )
-    return _run_thread(agent_id, persona.name, question, chunks or [])
+    return _run_thread(agent_id, persona.name, question, chunks or [], temperature=persona.temperature)
 
 
 def run_hosted(agent: dict, question: str, chunks: list[dict] | None = None) -> AgentReply:
@@ -276,16 +276,8 @@ def run_hosted(agent: dict, question: str, chunks: list[dict] | None = None) -> 
     return _run_thread(agent["agent_id"], agent["name"], question, chunks or [])
 
 
-def _run_thread(agent_id: str, persona_name: str, question: str, chunks: list[dict]) -> AgentReply:
-    """The Agent Service protocol, in four calls."""
-    user = build_user_prompt(question, chunks)
-
-    thread = _call("POST", "threads", {})                                    # 1 open
-    thread_id = thread["id"]
-    _call("POST", f"threads/{thread_id}/messages",
-          {"role": "user", "content": user})                                 # 2 ask
-    run_obj = _call("POST", f"threads/{thread_id}/runs",
-                    {"assistant_id": agent_id})                              # 3 execute
+def _run_and_wait(thread_id: str, run_body: dict) -> dict:
+    run_obj = _call("POST", f"threads/{thread_id}/runs", run_body)          # 3 execute
 
     deadline = time.time() + 180
     while run_obj.get("status") in ("queued", "in_progress", "requires_action"):
@@ -297,6 +289,31 @@ def _run_thread(agent_id: str, persona_name: str, question: str, chunks: list[di
             )
         time.sleep(0.8)
         run_obj = _call("GET", f"threads/{thread_id}/runs/{run_obj['id']}")
+    return run_obj
+
+
+def _run_thread(agent_id: str, persona_name: str, question: str, chunks: list[dict],
+                temperature: float | None = None) -> AgentReply:
+    """The Agent Service protocol, in four calls."""
+    user = build_user_prompt(question, chunks)
+
+    thread = _call("POST", "threads", {})                                    # 1 open
+    thread_id = thread["id"]
+    _call("POST", f"threads/{thread_id}/messages",
+          {"role": "user", "content": user})                                 # 2 ask
+
+    run_body = {"assistant_id": agent_id}
+    if temperature is not None:
+        run_body["temperature"] = temperature
+    run_obj = _run_and_wait(thread_id, run_body)
+
+    # Reasoning models (the gpt-5 family) fix their own temperature and reject
+    # an explicit one — retry once without it rather than making every caller
+    # know which generation of model the agent runs on.
+    if temperature is not None and run_obj.get("status") == "failed":
+        error = str(run_obj.get("last_error") or "")
+        if "temperature" in error and "not supported" in error:
+            run_obj = _run_and_wait(thread_id, {"assistant_id": agent_id})
 
     if run_obj.get("status") != "completed":
         raise FoundryUnavailable(
