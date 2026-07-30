@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { ChunkList, Err, PageHeader, Panel, PanelGrid, RawJson, Spinner } from '../components'
+import { useLanguage } from '../i18n.jsx'
 
 const SAMPLE = `Libra Bank issues debit and credit cards to retail customers. A card is blocked automatically after three failed PIN attempts, after the fraud engine flags a suspicious transaction, or at the customer's own request in the mobile application. A blocked card is unblocked in the branch after identity verification, or through the call centre using the phone banking password.
 
@@ -9,6 +10,7 @@ Mortgage loans require a down payment of at least fifteen percent for a first ho
 Term deposits can be opened in RON, EUR or USD, with maturities from one month to two years. Breaking a deposit before maturity forfeits the accrued interest.`
 
 export default function Knowledge() {
+  const { t } = useLanguage()
   const [text, setText] = useState(SAMPLE)
   const [strategy, setStrategy] = useState('dynamic')
   const [size, setSize] = useState(400)
@@ -46,41 +48,39 @@ export default function Knowledge() {
 
   return (
     <>
-      <PageHeader title="Knowledge">
-        Split a document into chunks and store them as vectors. Chunking is the highest-leverage
-        decision in a RAG pipeline — compare the strategies on the same text and watch the
-        boundaries move.
+      <PageHeader title={t('knowledge.title')}>
+        {t('knowledge.description')}
       </PageHeader>
 
       <Panel>
-        <label>Document</label>
+        <label>{t('knowledge.document')}</label>
         <textarea value={text} onChange={(e) => setText(e.target.value)} style={{ minHeight: 160 }} />
 
         <div className="row" style={{ marginTop: '.8rem' }}>
           <div>
-            <label>Strategy</label>
+            <label>{t('knowledge.strategy')}</label>
             <select value={strategy} onChange={(e) => setStrategy(e.target.value)}>
-              <option value="static">static — fixed windows</option>
-              <option value="sentence">sentence — N per chunk</option>
-              <option value="dynamic">dynamic — structure aware</option>
-              <option value="semantic">semantic — meaning aware</option>
+              <option value="static">{t('knowledge.strategyStatic')}</option>
+              <option value="sentence">{t('knowledge.strategySentence')}</option>
+              <option value="dynamic">{t('knowledge.strategyDynamic')}</option>
+              <option value="semantic">{t('knowledge.strategySemantic')}</option>
             </select>
           </div>
           {(strategy === 'static' || strategy === 'dynamic') && (<>
-            <div><label>Chunk size</label><input type="number" value={size} onChange={(e) => setSize(e.target.value)} /></div>
-            <div><label>Overlap</label><input type="number" value={overlap} onChange={(e) => setOverlap(e.target.value)} /></div>
+            <div><label>{t('knowledge.chunkSize')}</label><input type="number" value={size} onChange={(e) => setSize(e.target.value)} /></div>
+            <div><label>{t('knowledge.overlap')}</label><input type="number" value={overlap} onChange={(e) => setOverlap(e.target.value)} /></div>
           </>)}
           {strategy === 'sentence' && (
-            <div><label>Sentences / chunk</label><input type="number" value={sentences} onChange={(e) => setSentences(e.target.value)} /></div>
+            <div><label>{t('knowledge.sentencesPerChunk')}</label><input type="number" value={sentences} onChange={(e) => setSentences(e.target.value)} /></div>
           )}
           {strategy === 'semantic' && (
-            <div><label>Similarity threshold</label><input type="number" step="0.05" min="0.05" max="1" value={threshold} onChange={(e) => setThreshold(e.target.value)} /></div>
+            <div><label>{t('knowledge.similarityThreshold')}</label><input type="number" step="0.05" min="0.05" max="1" value={threshold} onChange={(e) => setThreshold(e.target.value)} /></div>
           )}
         </div>
 
         <div className="row" style={{ marginTop: '.9rem' }}>
-          <button className="btn btn-outline shrink" onClick={() => run('chunk')} disabled={!!busy}>Preview chunks</button>
-          <button className="btn btn-primary shrink" onClick={() => run('ingest')} disabled={!!busy}>Chunk + embed + store</button>
+          <button className="btn btn-outline shrink" onClick={() => run('chunk')} disabled={!!busy}>{t('knowledge.previewChunks')}</button>
+          <button className="btn btn-primary shrink" onClick={() => run('ingest')} disabled={!!busy}>{t('knowledge.chunkEmbedStore')}</button>
           <div className="shrink" style={{ alignSelf: 'center' }}>{busy && <Spinner label={busy} />}</div>
         </div>
         <Err error={error} />
@@ -88,18 +88,19 @@ export default function Knowledge() {
 
       <PanelGrid>
         {preview && (
-          <Panel title={`${preview.count} chunks · strategy “${preview.strategy}”`}
-                 actions={<span className="faint">(nothing stored)</span>}>
+          <Panel title={t('knowledge.chunksStrategy', { count: preview.count, strategy: preview.strategy })}
+                 actions={<span className="faint">{t('knowledge.nothingStored')}</span>}>
             <ChunkList chunks={preview.chunks} />
             <RawJson data={preview} />
           </Panel>
         )}
 
         {ingested && (
-          <Panel title={`Stored ${ingested.count} chunks`}>
+          <Panel title={t('knowledge.storedChunks', { count: ingested.count })}>
             <p className="muted" style={{ marginTop: 0 }}>
-              Embedded with <code>{ingested.embedding_model.model}</code> into{' '}
-              <strong>{ingested.vector_dimension}</strong> dimensions. First eight numbers of chunk 0:
+              {t('knowledge.embeddedWith', {
+                model: ingested.embedding_model.model, dim: ingested.vector_dimension,
+              })}
             </p>
             <pre className="out">{JSON.stringify(ingested.embedding_preview)}</pre>
             <ChunkList chunks={ingested.chunks} />
@@ -107,16 +108,16 @@ export default function Knowledge() {
           </Panel>
         )}
 
-        <Panel title="Collection">
+        <Panel title={t('knowledge.collection')}>
           {collection ? (
             <div className="row">
-              <div><label>name</label><div className="mono">{collection.name}</div></div>
-              <div><label>points</label><div className="mono">{collection.points_count}</div></div>
-              <div><label>dimensions</label><div className="mono">{collection.vector_dimension ?? '—'}</div></div>
-              <div><label>distance</label><div className="mono">{collection.distance ?? '—'}</div></div>
-              <button className="btn btn-outline shrink" onClick={reset} disabled={!!busy}>Reset collection</button>
+              <div><label>{t('knowledge.name')}</label><div className="mono">{collection.name}</div></div>
+              <div><label>{t('knowledge.points')}</label><div className="mono">{collection.points_count}</div></div>
+              <div><label>{t('knowledge.dimensions')}</label><div className="mono">{collection.vector_dimension ?? '—'}</div></div>
+              <div><label>{t('knowledge.distance')}</label><div className="mono">{collection.distance ?? '—'}</div></div>
+              <button className="btn btn-outline shrink" onClick={reset} disabled={!!busy}>{t('knowledge.resetCollection')}</button>
             </div>
-          ) : <p className="faint">Vector store unreachable — is Qdrant running?</p>}
+          ) : <p className="faint">{t('knowledge.vectorStoreUnreachable')}</p>}
         </Panel>
       </PanelGrid>
     </>

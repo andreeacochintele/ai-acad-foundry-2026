@@ -30,19 +30,31 @@ class AgentReply:
     completion_tokens: int | None = None
 
 
-def build_user_prompt(question: str, chunks: list[dict]) -> str:
-    """Question alone, or question + retrieved passages."""
-    if not chunks:
+def build_user_prompt(question: str, chunks: list[dict], history: list[dict] | None = None) -> str:
+    """Question alone, question + retrieved passages, and/or prior turns.
+
+    The backend keeps no session state (see app/sessions.py's docstring) — a
+    multi-turn conversation only works because the frontend resends recent
+    history each call, and it lands here as plain transcript text ahead of the
+    new question, rather than as a real multi-message array. That keeps every
+    LLM provider branch in app/llm.py untouched: one system + one user string,
+    same as a single-turn call, just with more said in the user string.
+    """
+    if not chunks and not history:
         return question
-    context = "\n\n".join(
-        f"[{i + 1}] (score {c['score']}) {c['text']}" for i, c in enumerate(chunks)
-    )
-    return (
-        "CONTEXT — retrieved passages, most similar first:\n"
-        f"{context}\n\n"
-        "QUESTION:\n"
-        f"{question}"
-    )
+    parts = []
+    if history:
+        transcript = "\n".join(
+            f"{'User' if h['role'] == 'user' else 'Assistant'}: {h['text']}" for h in history
+        )
+        parts.append(f"PRIOR CONVERSATION — for context, oldest first:\n{transcript}")
+    if chunks:
+        context = "\n\n".join(
+            f"[{i + 1}] (score {c['score']}) {c['text']}" for i, c in enumerate(chunks)
+        )
+        parts.append(f"CONTEXT — retrieved passages, most similar first:\n{context}")
+    parts.append(f"QUESTION:\n{question}")
+    return "\n\n".join(parts)
 
 
 def run(
@@ -50,10 +62,11 @@ def run(
     question: str,
     chunks: list[dict] | None = None,
     temperature: float | None = None,
+    history: list[dict] | None = None,
 ) -> AgentReply:
     chunks = chunks or []
     system = persona.system_prompt(grounded=bool(chunks))
-    user = build_user_prompt(question, chunks)
+    user = build_user_prompt(question, chunks, history)
 
     # precedence: explicit request value > persona file > .env default
     temp = temperature if temperature is not None else (

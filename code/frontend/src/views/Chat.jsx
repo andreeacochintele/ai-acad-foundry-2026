@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { Err, RunsOnBadge } from '../components'
+import { useLanguage } from '../i18n.jsx'
 
 // The wire shape is snake_case (matching the rest of the API, e.g. use_rag on
 // /ask) — these two functions are the only place that boundary is crossed.
@@ -47,22 +48,16 @@ function loadLocal() {
   return null
 }
 
-const SUGGESTED_QUESTIONS = [
-  'What documents do I need for a mortgage application?',
-  "What's the minimum down payment for a first-time buyer?",
-  'What happens if I miss a monthly payment?',
-  'Can I refinance my existing mortgage without a penalty?',
-]
-
-function groupLabel(ts) {
+function groupLabel(ts, t) {
   const startOfDay = (ms) => { const d = new Date(ms); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() }
   const diffDays = Math.round((startOfDay(Date.now()) - startOfDay(ts)) / 86400000)
-  if (diffDays <= 0) return 'Today'
-  if (diffDays === 1) return 'Yesterday'
-  return 'Older'
+  if (diffDays <= 0) return t('chat.group.today')
+  if (diffDays === 1) return t('chat.group.yesterday')
+  return t('chat.group.older')
 }
 
-export default function Chat({ agents, hostedOnly = [], foundry }) {
+export default function Chat({ agents, hostedOnly = [], foundry, clientMode = false }) {
+  const { t } = useLanguage()
   const [conversations, setConversations] = useState(() => loadLocal()?.conversations || [makeConversation()])
   const [activeId, setActiveId] = useState(() => loadLocal()?.activeId || conversations[0].id)
   const [question, setQuestion] = useState('')
@@ -83,7 +78,7 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
   const chunksRef = useRef([])
 
   useEffect(() => () => audioRef.current?.pause(), [])
-  useEffect(() => () => recorderRef.current?.stream?.getTracks().forEach((t) => t.stop()), [])
+  useEffect(() => () => recorderRef.current?.stream?.getTracks().forEach((tr) => tr.stop()), [])
 
   useEffect(() => {
     if (!settingsOpen) return
@@ -152,7 +147,7 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true })
     } catch {
-      setError('Could not access the microphone — check your browser permissions.')
+      setError(t('chat.micPermissionError'))
       return
     }
     let mimeType
@@ -161,8 +156,8 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
       mimeType = pickMicMimeType()
       recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
     } catch (e) {
-      stream.getTracks().forEach((t) => t.stop())
-      setError(`Could not start recording: ${e.message}`)
+      stream.getTracks().forEach((tr) => tr.stop())
+      setError(t('chat.micStartError', { msg: e.message }))
       return
     }
     // MediaRecorder already exposes the stream it was built with via a
@@ -170,16 +165,16 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
     chunksRef.current = []
     recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
     recorder.onerror = (e) => {
-      stream.getTracks().forEach((t) => t.stop())
-      setError(`Recording failed: ${e.error?.message || e.error?.name || 'unknown error'}`)
+      stream.getTracks().forEach((tr) => tr.stop())
+      setError(t('chat.micRecordingFailed', { msg: e.error?.message || e.error?.name || 'unknown error' }))
       setMicState('idle')
     }
     recorder.onstop = async () => {
-      stream.getTracks().forEach((t) => t.stop())
+      stream.getTracks().forEach((tr) => tr.stop())
       const type = recorder.mimeType || mimeType || 'audio/webm'
       const blob = new Blob(chunksRef.current, { type })
       if (!blob.size) {
-        setError('No audio was captured — try again and allow a second or two before stopping.')
+        setError(t('chat.micNoAudio'))
         setMicState('idle')
         return
       }
@@ -198,12 +193,11 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
         if (result.text) {
           setQuestion((q) => (q ? `${q} ${result.text}` : result.text))
         } else {
-          setError(
-            `No speech was recognized (status: ${result.status || 'unknown'}, ` +
-            `${result.duration_seconds ?? '?'}s captured, language ${micLang}). ` +
-            `Check the mic-language selector matches what you spoke, and start talking ` +
-            `right after the button turns red.`
-          )
+          setError(t('chat.micNoSpeech', {
+            status: result.status || 'unknown',
+            duration: result.duration_seconds ?? '?',
+            lang: micLang,
+          }))
         }
       } catch (e) {
         setError(e.message)
@@ -221,7 +215,7 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
       try {
         recorderRef.current?.stop()
       } catch (e) {
-        setError(`Could not stop recording: ${e.message}`)
+        setError(t('chat.micStopError', { msg: e.message }))
         setMicState('idle')
       }
     } else if (micState === 'idle') {
@@ -334,7 +328,7 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
 
   function buildMarkdown(conv) {
     const lines = [
-      `# ${conv.title || 'New conversation'}`,
+      `# ${conv.title || t('chat.newConversationFallback')}`,
       '',
       `_agent: ${conv.agent || '—'} · mode: ${conv.mode || '—'} · ` +
       `created ${fmtTime(conv.createdAt)} · updated ${fmtTime(conv.updatedAt)}_`,
@@ -367,18 +361,32 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
                  `${slugTitle(activeConv)}.json`)
   }
 
+  // The backend keeps no session state (app/sessions.py is disk persistence for
+  // the console, not conversation memory for the model) — so a follow-up like
+  // "and the second option?" only makes sense to the model if we resend the
+  // recent turns ourselves. Captured from `activeConv` before this turn's own
+  // messages are appended below, and capped so the prompt doesn't grow forever.
+  const MAX_HISTORY_TURNS = 10
+  function buildHistory() {
+    return activeConv.messages
+      .filter((m) => m.role === 'user' || (m.role === 'bot' && m.data?.answer))
+      .map((m) => ({ role: m.role === 'bot' ? 'assistant' : 'user', text: m.role === 'bot' ? m.data.answer : m.text }))
+      .slice(-MAX_HISTORY_TURNS)
+  }
+
   async function send(overrideText) {
     const text = (overrideText ?? question).trim()
     if (!text || busy) return
     const convId = activeId
     const isFirst = activeConv.messages.length === 0
+    const history = buildHistory()
     setQuestion(''); setError(null); setBusy(true)
     patchConversation(convId, (c) => ({
       messages: [...c.messages, { role: 'user', text }],
       ...(isFirst ? { title: text.length > 48 ? `${text.slice(0, 48)}…` : text } : {}),
     }))
     try {
-      const data = await api.ask({ question: text, use_rag: useRag, top_k: Number(topK),
+      const data = await api.ask({ question: text, history, use_rag: useRag, top_k: Number(topK),
                                   temperature: Number(temperature),
                                   agent, agent_mode: mode, fact_check: factCheck })
       patchConversation(convId, (c) => ({ messages: [...c.messages, { role: 'bot', data }] }))
@@ -403,8 +411,8 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
     (foundryReachable === true && !isHosted)                  // reachable, but not deployed
   const foundryWhy =
     foundryReachable === false
-      ? (foundry?.reason || 'The Agent Service cannot be reached from here.')
-      : 'Not deployed to Foundry — deploy it from the Agents view'
+      ? (foundry?.reason || t('chat.foundryUnreachableTitle'))
+      : t('chat.notDeployedTitle')
 
   // Keep the mode legal whenever the selected agent changes.
   useEffect(() => {
@@ -421,7 +429,7 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
   const sortedConvs = [...conversations].sort((a, b) => b.updatedAt - a.updatedAt)
   const historyGroups = []
   for (const c of sortedConvs) {
-    const label = groupLabel(c.updatedAt)
+    const label = groupLabel(c.updatedAt, t)
     let g = historyGroups.find((g) => g.label === label)
     if (!g) { g = { label, items: [] }; historyGroups.push(g) }
     g.items.push(c)
@@ -431,7 +439,7 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
     <div className="chat-shell">
       <aside className={`chat-history ${historyOpen ? '' : 'closed'}`}>
         <button className="history-toggle" onClick={() => setHistoryOpen(!historyOpen)}
-                title={historyOpen ? 'Hide history' : 'Show history'} aria-expanded={historyOpen}>
+                title={historyOpen ? t('chat.hideHistory') : t('chat.showHistory')} aria-expanded={historyOpen}>
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M15 6l-6 6 6 6" />
@@ -440,7 +448,7 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
         {historyOpen && (
           <>
             <button className="btn btn-primary btn-sm new-conv-btn" onClick={newConversation}>
-              + New conversation
+              {t('chat.newConversation')}
             </button>
             <div className="history-groups">
               {historyGroups.map((g) => (
@@ -449,8 +457,8 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
                   {g.items.map((c) => (
                     <div key={c.id} className={`history-item ${c.id === activeId ? 'active' : ''}`}
                          onClick={() => setActiveId(c.id)}>
-                      <span className="history-item-title">{c.title || 'New conversation'}</span>
-                      <button className="history-item-delete" title="Delete conversation"
+                      <span className="history-item-title">{c.title || t('chat.newConversationFallback')}</span>
+                      <button className="history-item-delete" title={t('chat.deleteConversation')}
                               onClick={(e) => deleteConversation(c.id, e)}>×</button>
                     </div>
                   ))}
@@ -462,82 +470,82 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
       </aside>
 
       <div className="chat-wrap">
+        {!clientMode && (
         <div className="chat-bar">
           <div className="settings-wrap" ref={settingsRef}>
             <button type="button" className="btn btn-outline btn-sm" onClick={() => setSettingsOpen((v) => !v)}
-                    title="Chat settings" aria-expanded={settingsOpen}>
+                    title={t('chat.settingsTitle')} aria-expanded={settingsOpen}>
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <circle cx="12" cy="12" r="3" />
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
               </svg>
-              Settings
+              {t('chat.settings')}
             </button>
             {settingsOpen && (
               <div className="settings-panel">
-                <label>Agent</label>
-                <select value={agent} onChange={(e) => setAgent(e.target.value)} title="Which persona answers">
+                <label>{t('chat.agent')}</label>
+                <select value={agent} onChange={(e) => setAgent(e.target.value)} title={t('chat.agentTitle')}>
                   {agents.map((a) => <option key={a.name} value={a.name}>{a.display_name}</option>)}
                   {hostedOnly.length > 0 && (
-                    <optgroup label="hosted in Foundry only">
+                    <optgroup label={t('chat.hostedInFoundryOnly')}>
                       {hostedOnly.map((a) => <option key={a.name} value={a.name}>{a.display_name}</option>)}
                     </optgroup>
                   )}
                 </select>
                 {current && <RunsOnBadge runsOn={current.runs_on} reason={foundry?.reason} />}
 
-                <label>Where it runs</label>
-                <select value={mode} onChange={(e) => setMode(e.target.value)} title="Where the loop executes">
+                <label>{t('chat.whereItRuns')}</label>
+                <select value={mode} onChange={(e) => setMode(e.target.value)} title={t('chat.whereItRunsTitle')}>
                   <option value="local" disabled={localImpossible}
-                          title={localImpossible ? 'This agent has no local JSON file' : ''}>
-                    local agent
+                          title={localImpossible ? t('chat.noLocalFile') : ''}>
+                    {t('chat.localAgent')}
                   </option>
                   <option value="foundry" disabled={foundryBlocked} title={foundryBlocked ? foundryWhy : ''}>
-                    Foundry agent{foundryReachable === false ? ' — no identity'
-                                  : foundryBlocked ? ' — not deployed' : ''}
+                    {t('chat.foundryAgent')}{foundryReachable === false ? t('chat.noIdentitySuffix')
+                                  : foundryBlocked ? t('chat.notDeployedSuffix') : ''}
                   </option>
                 </select>
                 {foundryReachable === false && (
-                  <span className="badge muted" title={foundryWhy}>hosted agents off — key auth</span>
+                  <span className="badge muted" title={foundryWhy}>{t('chat.hostedAgentsOff')}</span>
                 )}
 
-                <label className="check" title="Retrieve from your documents and ground the answer">
+                <label className="check" title={t('chat.useRagTitle')}>
                   <input type="checkbox" checked={useRag} onChange={(e) => setUseRag(e.target.checked)} />
-                  use RAG
+                  {t('chat.useRag')}
                 </label>
-                <label className="check"
-                       title="After answering, verify the answer against the open web and attach a verdict">
+                <label className="check" title={t('chat.factCheckTitle')}>
                   <input type="checkbox" checked={factCheck} onChange={(e) => setFactCheck(e.target.checked)} />
-                  fact-check
+                  {t('chat.factCheck')}
                 </label>
 
-                <label>Mic language</label>
-                <select value={micLang} onChange={(e) => setMicLang(e.target.value)} title="Spoken language for the mic">
+                <label>{t('chat.micLanguage')}</label>
+                <select value={micLang} onChange={(e) => setMicLang(e.target.value)} title={t('chat.micLanguageTitle')}>
                   <option value="ro-RO">RO mic</option>
                   <option value="en-US">EN mic</option>
                 </select>
 
-                <label>Passages to retrieve (top-K)</label>
+                <label>{t('chat.topK')}</label>
                 <input type="number" min="1" max="10" value={topK} onChange={(e) => setTopK(e.target.value)}
-                       title="How many chunks are retrieved when RAG is on" />
+                       title={t('chat.topKTitle')} />
 
-                <label>Temperature</label>
+                <label>{t('chat.temperature')}</label>
                 <input type="number" min="0" max="2" step="0.05" value={temperature}
                        onChange={(e) => setTemperature(e.target.value)}
-                       title="Lower = more deterministic, higher = more varied. Resets to the persona's default when you switch agents." />
+                       title={t('chat.temperatureTitle')} />
 
                 <div className="settings-actions">
                   <button type="button" className="btn btn-outline btn-sm" onClick={exportMarkdown} disabled={!messages.length}
-                          title="Download this conversation as a Markdown file">
-                    export .md
+                          title={t('chat.exportMdTitle')}>
+                    {t('chat.exportMd')}
                   </button>
                   <button type="button" className="btn btn-outline btn-sm" onClick={exportJson} disabled={!messages.length}
-                          title="Download this conversation as a JSON file">
-                    export .json
+                          title={t('chat.exportJsonTitle')}>
+                    {t('chat.exportJson')}
                   </button>
                   <button type="button" className="btn btn-outline btn-sm"
                           onClick={() => { patchConversation(activeId, { messages: [] }); setSettingsOpen(false) }}>
-                    clear
+                    {t('chat.clear')}
                   </button>
                 </div>
               </div>
@@ -545,21 +553,21 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
           </div>
           {current && (
             <span className="badge muted" title={current.description}>
-              {mode === 'foundry' ? 'Foundry agent' : 'local agent'} · temp {temperature} · top-{topK}
+              {mode === 'foundry' ? t('chat.foundryAgent') : t('chat.localAgent')} · temp {temperature} · top-{topK}
             </span>
           )}
         </div>
+        )}
 
         <div className="msgs">
           {messages.length === 0 && (
             <div className="card" style={{ alignSelf: 'center', maxWidth: '46rem', textAlign: 'center' }}>
-              <h3>Libra Assist Credit Specialist</h3>
+              <h3>{t('chat.emptyTitle')}</h3>
               <p className="muted" style={{ margin: 0 }}>
-                Ask a question about the documents you have ingested. Switch the persona to change how
-                it answers, or turn RAG off to see the model answer without grounding.
+                {t('chat.emptyBody')}
               </p>
               <div className="suggestion-chips">
-                {SUGGESTED_QUESTIONS.map((q) => (
+                {[t('chat.suggestion1'), t('chat.suggestion2'), t('chat.suggestion3'), t('chat.suggestion4')].map((q) => (
                   <button key={q} type="button" className="suggestion-chip" disabled={busy}
                           onClick={() => send(q)}>
                     {q}
@@ -579,7 +587,7 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
             if (m.role === 'err') return (
               <div className="msg-row err" key={i}>
                 <span className="msg-avatar">!</span>
-                <div className="msg"><strong>Request failed:</strong> {m.text}</div>
+                <div className="msg"><strong>{t('chat.requestFailed')}</strong> {m.text}</div>
               </div>
             )
             const d = m.data
@@ -591,7 +599,7 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
                 <div className="msg-meta">
                   <button className={`speak-btn ${speakingIdx === i ? 'playing' : ''}`}
                           onClick={() => speakMessage(i, d.answer)}
-                          title={speakingIdx === i ? 'Stop playback' : 'Listen to the answer'}>
+                          title={speakingIdx === i ? t('chat.stopPlayback') : t('chat.listenToAnswer')}>
                     <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"
                          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       {speakingIdx === i
@@ -601,13 +609,13 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
                             <path d="M15.5 8.5a5 5 0 0 1 0 7" />
                           </>}
                     </svg>
-                    {speakingIdx === i ? 'Stop' : 'Listen'}
+                    {speakingIdx === i ? t('chat.stop') : t('chat.listen')}
                   </button>
-                  <span className="badge">{d.agent?.display_name || 'agent'}</span>
-                  <span className={`badge ${d.augmented ? 'gold' : 'muted'}`}>{d.augmented ? 'grounded' : 'no retrieval'}</span>
+                  <span className="badge">{d.agent?.display_name || t('chat.agentFallback')}</span>
+                  <span className={`badge ${d.augmented ? 'gold' : 'muted'}`}>{d.augmented ? t('chat.grounded') : t('chat.noRetrieval')}</span>
                   <span className="badge muted">{d.agent?.mode}</span>
                   <span className="badge muted">{d.model}</span>
-                  {d.usage && <span className="badge muted">{d.usage.prompt_tokens}↑ {d.usage.completion_tokens}↓ tokens</span>}
+                  {d.usage && <span className="badge muted">{d.usage.prompt_tokens}↑ {d.usage.completion_tokens}↓ {t('chat.tokens')}</span>}
                 </div>
                 {d.fact_check && (
                   <div className="src" style={{ marginTop: '.55rem',
@@ -615,9 +623,9 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
                          : d.fact_check.verdict === 'contradicted' ? 'var(--c-crimson)' : 'var(--c-gold)' }}>
                     <span className={`badge ${d.fact_check.verdict === 'contradicted' ? 'crimson'
                       : d.fact_check.verdict === 'supported' ? '' : 'gold'}`}>
-                      fact-check: {d.fact_check.verdict}
+                      {t('chat.factCheckLabel', { verdict: d.fact_check.verdict })}
                     </span>{' '}
-                    <span className="faint">{d.fact_check.confidence} confidence · {d.fact_check.evidence_from}</span>
+                    <span className="faint">{t('chat.confidenceLabel', { confidence: d.fact_check.confidence, source: d.fact_check.evidence_from })}</span>
                     {d.fact_check.error
                       ? <div className="faint" style={{ marginTop: '.3rem' }}>{d.fact_check.error}</div>
                       : <div style={{ marginTop: '.3rem' }}>{d.fact_check.reasoning}</div>}
@@ -626,7 +634,7 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
                         {d.fact_check.sources.map((sc) => (
                           <li key={sc.rank}>
                             <a href={sc.url} target="_blank" rel="noreferrer">{sc.title || sc.url}</a>
-                            {' '}{sc.used ? `(${sc.chars_read} chars read)` : '(could not be read)'}
+                            {' '}{sc.used ? t('chat.charsRead', { n: sc.chars_read }) : t('chat.couldNotBeRead')}
                           </li>
                         ))}
                       </ul>
@@ -635,17 +643,17 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
                 )}
                 {d.retrieved?.length > 0 && (
                   <details className="sources">
-                    <summary>{d.retrieved.length} retrieved passage{d.retrieved.length > 1 ? 's' : ''}</summary>
+                    <summary>{t(d.retrieved.length > 1 ? 'chat.retrievedPassageMany' : 'chat.retrievedPassageOne', { n: d.retrieved.length })}</summary>
                     {d.retrieved.map((h, j) => (
                       <div className="src" key={h.id}>
-                        <span className="score">[{j + 1}] score {h.score.toFixed(4)}</span>
+                        <span className="score">[{j + 1}] {t('chat.scoreLabel', { n: h.score.toFixed(4) })}</span>
                         <div>{h.text}</div>
                       </div>
                     ))}
                   </details>
                 )}
                 <details className="sources">
-                  <summary>the exact prompt that was sent</summary>
+                  <summary>{t('chat.exactPrompt')}</summary>
                   <pre className="out" style={{ marginTop: '.4rem' }}>{`SYSTEM:\n${d.system_prompt}\n\nUSER:\n${d.prompt_sent}`}</pre>
                 </details>
               </div>
@@ -655,7 +663,7 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
           {busy && (
             <div className="msg-row bot">
               <span className="msg-avatar">A</span>
-              <div className="msg"><span className="spin" /> thinking…</div>
+              <div className="msg"><span className="spin" /> {t('chat.thinking')}</div>
             </div>
           )}
           <div ref={endRef} />
@@ -666,8 +674,8 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
           {typeof window !== 'undefined' && window.MediaRecorder && (
             <button type="button" className={`btn btn-outline mic-btn ${micState}`} onClick={toggleRecording}
                     disabled={micState === 'transcribing' || busy}
-                    title={micState === 'recording' ? 'Stop recording'
-                          : micState === 'transcribing' ? 'Transcribing…' : 'Speak your question'}
+                    title={micState === 'recording' ? t('chat.stopRecording')
+                          : micState === 'transcribing' ? t('chat.transcribing') : t('chat.speakYourQuestion')}
                     aria-pressed={micState === 'recording'}>
               {micState === 'transcribing' ? <span className="spin" /> : (
                 <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
@@ -683,10 +691,10 @@ export default function Chat({ agents, hostedOnly = [], foundry }) {
               )}
             </button>
           )}
-          <textarea value={question} placeholder="Ask Libra Assist Credit Specialist…  (Enter to send, Shift+Enter for a new line)"
+          <textarea value={question} placeholder={t('chat.placeholder')}
                     onChange={(e) => setQuestion(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }} />
-          <button className="btn btn-primary send-btn" onClick={() => send()} disabled={busy || !question.trim()} title="Send" aria-label="Send">
+          <button className="btn btn-primary send-btn" onClick={() => send()} disabled={busy || !question.trim()} title={t('chat.send')} aria-label={t('chat.send')}>
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M5 12h14" /><path d="m13 6 6 6-6 6" />

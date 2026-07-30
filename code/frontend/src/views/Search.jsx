@@ -1,15 +1,11 @@
 import { useState } from 'react'
 import { api } from '../api'
 import { Err, Hits, PageHeader, Panel, RawJson, Spinner } from '../components'
-
-const EXAMPLES = [
-  'my card got frozen, what do I do?',
-  'can I pay my mortgage back sooner?',
-  'what happens if I break a deposit early?',
-  'what is the weather in Cluj?',
-]
+import { useLanguage } from '../i18n.jsx'
 
 export default function Search() {
+  const { t } = useLanguage()
+  const EXAMPLES = [t('search.example1'), t('search.example2'), t('search.example3'), t('search.example4')]
   const [query, setQuery] = useState(EXAMPLES[0])
   const [topK, setTopK] = useState(3)
   const [result, setResult] = useState(null)
@@ -24,37 +20,37 @@ export default function Search() {
 
   return (
     <>
-      <PageHeader title="Retrieval">
-        The query is embedded with the same model as the documents, then compared by cosine
-        similarity. Try a paraphrase that shares no words with the source text — and an
-        off-topic question, to watch the scores collapse.
+      <PageHeader title={t('search.title')}>
+        {t('search.description')}
       </PageHeader>
 
       <Panel>
         <div className="row">
           <div style={{ flex: 3 }}>
-            <label>Query</label>
+            <label>{t('search.query')}</label>
             <input type="text" value={query} onChange={(e) => setQuery(e.target.value)}
                    onKeyDown={(e) => e.key === 'Enter' && run()} />
           </div>
-          <div style={{ maxWidth: '6rem' }}><label>top k</label>
+          <div style={{ maxWidth: '6rem' }}><label>{t('search.topK')}</label>
             <input type="number" min="1" max="20" value={topK} onChange={(e) => setTopK(e.target.value)} /></div>
-          <button className="btn btn-primary shrink" onClick={() => run()} disabled={busy}>Search</button>
+          <button className="btn btn-primary shrink" onClick={() => run()} disabled={busy}>{t('search.search')}</button>
         </div>
         <div style={{ display: 'flex', gap: '.4rem', flexWrap: 'wrap', marginTop: '.7rem' }}>
           {EXAMPLES.map((e) => (
             <button key={e} className="btn btn-outline btn-sm" onClick={() => { setQuery(e); run(e) }}>{e}</button>
           ))}
         </div>
-        {busy && <div style={{ marginTop: '.7rem' }}><Spinner label="searching" /></div>}
+        {busy && <div style={{ marginTop: '.7rem' }}><Spinner label={t('search.searching')} /></div>}
         <Err error={error} />
       </Panel>
 
       {result && (
-        <Panel title={`${result.hits.length} hits for “${result.query}”`}>
+        <Panel title={t('search.hitsFor', { count: result.hits.length, query: result.query })}>
           <p className="faint" style={{ marginTop: 0 }}>
-            embedded with <code>{result.embedding_model.model}</code> · query vector starts{' '}
-            <span className="mono">[{result.query_embedding_preview.slice(0, 4).join(', ')}…]</span>
+            {t('search.embeddedWith', {
+              model: result.embedding_model.model,
+              preview: `[${result.query_embedding_preview.slice(0, 4).join(', ')}…]`,
+            })}
           </p>
           <Hits hits={result.hits} />
           <RawJson data={result} />

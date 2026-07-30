@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { api } from '../api'
 import { Err, PageHeader, Panel, PanelGrid, RawJson, Spinner } from '../components'
+import { useLanguage } from '../i18n.jsx'
 
 export default function Tools() {
+  const { t } = useLanguage()
   // --- web fetch --------------------------------------------------------------
   const [url, setUrl] = useState('https://example.com')
   const [page, setPage] = useState(null)
@@ -51,33 +53,31 @@ export default function Tools() {
 
   return (
     <>
-      <PageHeader title="Tools">
-        The capabilities an agent can call — and what they cost to build yourself. Each of these
-        is a separate service with its own endpoint and its own permissions.
+      <PageHeader title={t('tools.title')}>
+        {t('tools.description')}
       </PageHeader>
 
       <PanelGrid>
-      <Panel title="Web fetch — the do-it-yourself lane">
+      <Panel title={t('tools.webFetchTitle')}>
         <p className="muted" style={{ marginTop: 0 }}>
-          A plain scraper: fetch, parse, strip to text. Read the warnings — they are everything
-          the naive approach could not handle, and the argument for managed grounding.
+          {t('tools.webFetchDescription')}
         </p>
         <div className="row">
-          <div style={{ flex: 3 }}><label>URL</label>
+          <div style={{ flex: 3 }}><label>{t('tools.url')}</label>
             <input type="text" value={url} onChange={(e) => setUrl(e.target.value)}
                    onKeyDown={(e) => e.key === 'Enter' && fetchPage()} /></div>
-          <button className="btn btn-primary shrink" onClick={fetchPage} disabled={!!busy}>Fetch</button>
+          <button className="btn btn-primary shrink" onClick={fetchPage} disabled={!!busy}>{t('tools.fetch')}</button>
         </div>
         {page && (
           <div style={{ marginTop: '.9rem' }}>
             <div style={{ display: 'flex', gap: '.4rem', flexWrap: 'wrap', marginBottom: '.6rem' }}>
               <span className="badge muted">HTTP {page.status_code}</span>
               <span className="badge muted">{page.chars} chars</span>
-              <span className="badge muted">~{page.approx_tokens} tokens</span>
+              <span className="badge muted">~{page.approx_tokens} {t('chat.tokens')}</span>
               <span className="badge muted">signal {(page.stats.signal_ratio * 100).toFixed(1)}%</span>
               <span className="badge muted">{page.stats.script_tags} scripts</span>
               <span className={`badge ${page.warnings.length ? 'crimson' : 'gold'}`}>
-                {page.warnings.length} warning{page.warnings.length === 1 ? '' : 's'}
+                {t(page.warnings.length === 1 ? 'tools.warningOne' : 'tools.warningMany', { n: page.warnings.length })}
               </span>
             </div>
             {page.warnings.length > 0 && (
@@ -85,54 +85,54 @@ export default function Tools() {
                 {page.warnings.map((w, i) => <li key={i}>{w}</li>)}
               </ul>
             )}
-            <label>extracted text</label>
-            <pre className="out" style={{ maxHeight: '16rem', overflowY: 'auto' }}>{page.text || '(nothing extracted)'}</pre>
+            <label>{t('tools.extractedText')}</label>
+            <pre className="out" style={{ maxHeight: '16rem', overflowY: 'auto' }}>{page.text || t('tools.nothingExtracted')}</pre>
             <RawJson data={page} />
           </div>
         )}
       </Panel>
 
-      <Panel title="Speech — the voice loop, in two calls">
+      <Panel title={t('tools.speechTitle')}>
         <p className="muted" style={{ marginTop: 0 }}>
-          Text becomes audio; that audio becomes text again. Needs an Azure Speech resource
-          (its own key and region — a different service from the model).
+          {t('tools.speechDescription')}
         </p>
-        <label>Text to speak</label>
+        <label>{t('tools.textToSpeak')}</label>
         <textarea value={text} onChange={(e) => setText(e.target.value)} style={{ minHeight: 70 }} />
         <div className="row" style={{ marginTop: '.6rem' }}>
           <div className="shrink">
-            <label>Voice / language</label>
+            <label>{t('tools.voiceLanguage')}</label>
             <select value={voiceIdx} onChange={(e) => setVoiceIdx(Number(e.target.value))} style={{ width: 'auto' }}>
               {VOICES.map((v, i) => <option key={v.voice} value={i}>{v.label}</option>)}
             </select>
           </div>
         </div>
         <p className="faint" style={{ margin: '.4rem 0 0' }}>
-          Transcription only reads back correctly if the language here matches what was actually spoken —
-          Azure's speech-to-text needs to know which language model to apply.
+          {t('tools.languageMatchNote')}
         </p>
         <div className="row" style={{ marginTop: '.7rem' }}>
-          <button className="btn btn-primary shrink" onClick={speak} disabled={!!busy}>Synthesize</button>
+          <button className="btn btn-primary shrink" onClick={speak} disabled={!!busy}>{t('tools.synthesize')}</button>
           <button className="btn btn-outline shrink" onClick={transcribeGenerated} disabled={!!busy || !audio}>
-            Transcribe it back
+            {t('tools.transcribeItBack')}
           </button>
           <label className="btn btn-outline btn-sm shrink" style={{ textTransform: 'none', letterSpacing: 0, margin: 0 }}>
-            or upload a WAV
+            {t('tools.orUploadWav')}
             <input type="file" accept="audio/*" onChange={transcribeUpload} style={{ display: 'none' }} />
           </label>
         </div>
         {audio && (
           <div style={{ marginTop: '.8rem' }}>
             <audio controls src={audio.url} style={{ width: '100%' }} />
-            <p className="faint" style={{ margin: '.3rem 0 0' }}>{(audio.size / 1024).toFixed(0)} KB of WAV</p>
+            <p className="faint" style={{ margin: '.3rem 0 0' }}>{t('tools.kbOfWav', { kb: (audio.size / 1024).toFixed(0) })}</p>
           </div>
         )}
         {transcript && (
           <div style={{ marginTop: '.8rem' }}>
-            <label>transcription</label>
+            <label>{t('tools.transcription')}</label>
             <pre className="out">{transcript.text}</pre>
             <p className="faint" style={{ margin: '.3rem 0 0' }}>
-              status {transcript.status} · confidence {transcript.confidence ?? '—'} · {transcript.duration_seconds}s
+              {t('tools.transcriptionMeta', {
+                status: transcript.status, confidence: transcript.confidence ?? '—', duration: transcript.duration_seconds,
+              })}
             </p>
           </div>
         )}

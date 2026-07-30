@@ -8,7 +8,7 @@ is used anywhere in it.
 **Domain:** mortgages and home loans (eligibility, rates, fees, process,
 insurance, hardship, and a first-time buyer program).
 
-**Documents:** 16, each with a YAML header (`title`, `product`, `audience`,
+**Documents:** 25, each with a YAML header (`title`, `product`, `audience`,
 `effective`, `version`).
 
 ## Document list
@@ -31,6 +31,15 @@ insurance, hardship, and a first-time buyer program).
 | `14-hardship-restructuring.md` | Payment holiday, term extension, rate reduction |
 | `15-first-time-buyer-program.md` | Reduced down payment (10%), age/residency rules |
 | `16-glossary-mortgage-terms.md` | IRCC, LTV, amortization, acceleration, etc. |
+| `17-closing-costs-and-fees.md` | Origination fee, appraisal fee, Land Registry fee, notary fee |
+| `18-mortgage-top-up.md` | Borrowing more against an existing mortgage, same collateral |
+| `19-mortgage-portability.md` | Carrying a mortgage's rate and term to a new property |
+| `20-green-mortgage-discount.md` | Rate discount for energy-efficient (EPC A/B) properties |
+| `21-buy-to-let-mortgage.md` | Rental-property rules: rate premium, rental income in DSTI |
+| `22-non-resident-borrower-eligibility.md` | Higher down payment, currency haircut, extra documents |
+| `23-complaints-and-escalation.md` | Response timelines, CSALB escalation, what's out of scope |
+| `24-new-build-staged-drawdown.md` | Buying from a developer under construction, tranche funding |
+| `25-rate-type-switch-mid-term.md` | One-time fixed↔variable switch, separate from rate lock |
 
 ## Which document covers which breaking case
 

@@ -400,15 +400,16 @@ def ask(req: AskRequest) -> AskResponse:
 
     chunks = [h.model_dump() for h in retrieved]
     mode = mode_requested
+    history = [h.model_dump() for h in req.history]
 
     # ---- run the agent ------------------------------------------------------
     try:
         if hosted_only is not None:
-            reply = foundry_agent.run_hosted(hosted_only, req.question, chunks)
+            reply = foundry_agent.run_hosted(hosted_only, req.question, chunks, history=history)
         elif mode == "foundry":
-            reply = foundry_agent.run(persona, req.question, chunks)
+            reply = foundry_agent.run(persona, req.question, chunks, history=history)
         else:
-            reply = local_agent.run(persona, req.question, chunks, temperature=req.temperature)
+            reply = local_agent.run(persona, req.question, chunks, temperature=req.temperature, history=history)
     except foundry_agent.FoundryUnavailable as e:
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:

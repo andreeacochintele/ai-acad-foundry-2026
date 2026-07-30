@@ -1,4 +1,16 @@
 import { useState } from 'react'
+import { useLanguage } from './i18n.jsx'
+
+/** The brand mark: just the sparkle. */
+export function BrandMark({ size = 21 }) {
+  return (
+    <span className="brand-mark">
+      <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
+        <path d="M12 .8c.8 8.15 1.8 9.15 9.95 9.95-8.15.8-9.15 1.8-9.95 9.95-.8-8.15-1.8-9.15-9.95-9.95C10.2 9.95 11.2 8.95 12 .8z" />
+      </svg>
+    </span>
+  )
+}
 
 /** Page title + description, with an optional right-aligned actions slot. */
 export function PageHeader({ title, actions, children }) {
@@ -54,39 +66,45 @@ export function StatGrid({ children }) {
 }
 
 export function Err({ error }) {
+  const { t } = useLanguage()
   if (!error) return null
-  return <div className="err" style={{ marginTop: '.8rem' }}><strong>Error:</strong> {error}</div>
+  return <div className="err" style={{ marginTop: '.8rem' }}><strong>{t('common.error')}</strong> {error}</div>
 }
 
-export function Spinner({ label = 'working' }) {
-  return <span className="muted" style={{ fontSize: '.85rem' }}><span className="spin" /> {label}…</span>
+export function Spinner({ label }) {
+  const { t } = useLanguage()
+  return <span className="muted" style={{ fontSize: '.85rem' }}><span className="spin" /> {label || t('common.working')}…</span>
 }
 
 /** Collapsible raw JSON — the bridge between the GUI and what Swagger would show. */
-export function RawJson({ data, label = 'raw response' }) {
+export function RawJson({ data, label }) {
+  const { t } = useLanguage()
   const [open, setOpen] = useState(false)
   if (!data) return null
   return (
     <div style={{ marginTop: '.8rem' }}>
       <button className="btn btn-outline btn-sm" onClick={() => setOpen(!open)}>
-        {open ? 'hide' : 'show'} {label}
+        {open ? t('common.hide') : t('common.show')} {label || t('common.rawResponse')}
       </button>
       {open && <pre className="out" style={{ marginTop: '.5rem' }}>{JSON.stringify(data, null, 2)}</pre>}
     </div>
   )
 }
 
-/** Where an agent can run — the four states, with the reason on hover. */
+/** Where an agent can run — the four states, with the reason on hover. tone drives the
+ * CSS class; label/hint are resolved via translation keys in RunsOnBadge, not stored here. */
 export const RUNS_ON = {
-  local:   { label: 'local only',     tone: 'muted',   hint: 'A JSON file on disk. Runs in the backend process, with any provider.' },
-  both:    { label: 'local + Foundry', tone: '',       hint: 'A JSON file here AND a hosted agent of the same name in Azure. Either lane works.' },
-  foundry: { label: 'Foundry only',   tone: 'gold',    hint: 'Hosted in Azure with no local file — created in the portal, or its file was removed.' },
-  unknown: { label: 'Foundry: unknown', tone: 'muted', hint: 'Could not ask the Agent Service, so hosted state is genuinely unknown.' },
+  local:   { tone: 'muted' },
+  both:    { tone: '' },
+  foundry: { tone: 'gold' },
+  unknown: { tone: 'muted' },
 }
 
 export function RunsOnBadge({ runsOn, reason }) {
-  const s = RUNS_ON[runsOn] || RUNS_ON.unknown
-  return <span className={`badge ${s.tone}`} title={runsOn === 'unknown' && reason ? reason : s.hint}>{s.label}</span>
+  const { t } = useLanguage()
+  const key = RUNS_ON[runsOn] ? runsOn : 'unknown'
+  const tone = RUNS_ON[key].tone
+  return <span className={`badge ${tone}`} title={key === 'unknown' && reason ? reason : t(`runsOn.${key}Hint`)}>{t(`runsOn.${key}`)}</span>
 }
 
 export function ChunkList({ chunks }) {

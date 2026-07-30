@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api } from '../api'
 import { Err, PageHeader, Panel, RawJson, RUNS_ON, RunsOnBadge, Spinner, StatGrid, StatTile } from '../components'
+import { useLanguage } from '../i18n.jsx'
 
 const COUNT_ICON = <><rect x="4" y="8" width="16" height="12" rx="2" /><path d="M12 8V4H9" /></>
 function CountIcon() {
@@ -13,6 +14,7 @@ function CountIcon() {
 }
 
 export default function Agents({ agents, hostedOnly = [], foundry, reload, azure }) {
+  const { t } = useLanguage()
   const [detail, setDetail] = useState(null)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState(null)
@@ -40,31 +42,29 @@ export default function Agents({ agents, hostedOnly = [], foundry, reload, azure
 
   return (
     <>
-      <PageHeader title="Agents">
-        Each agent is a JSON file in <code>app/agents/personas/</code> — edit one, save, and the
-        next answer changes. The badge tells you <strong>where each one can run</strong>: on this
-        machine, in Azure, or both.
+      <PageHeader title={t('agents.title')}>
+        {t('agents.description')}
       </PageHeader>
 
       <StatGrid>
-        <StatTile icon={<CountIcon />} label="total agents" value={all.length} />
-        <StatTile icon={<CountIcon />} label="local only" value={counts.local} />
-        <StatTile icon={<CountIcon />} label="local + Foundry" value={counts.both} />
-        <StatTile icon={<CountIcon />} label="Foundry only" value={counts.foundry} />
+        <StatTile icon={<CountIcon />} label={t('agents.totalAgents')} value={all.length} />
+        <StatTile icon={<CountIcon />} label={t('agents.localOnly')} value={counts.local} />
+        <StatTile icon={<CountIcon />} label={t('agents.localAndFoundry')} value={counts.both} />
+        <StatTile icon={<CountIcon />} label={t('agents.foundryOnly')} value={counts.foundry} />
       </StatGrid>
 
       <Panel actions={<>
-        <button className="btn btn-outline btn-sm" onClick={reload}>refresh</button>
+        <button className="btn btn-outline btn-sm" onClick={reload}>{t('agents.refresh')}</button>
         {azure?.foundry_url && (
           <a className="btn btn-outline btn-sm" href={azure.foundry_url} target="_blank" rel="noreferrer">
-            open Foundry portal ↗
+            {t('agents.openFoundryPortal')}
           </a>
         )}
       </>}>
         <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', marginBottom: '.9rem' }}>
-          {Object.entries(RUNS_ON).map(([k, s]) => (
+          {Object.keys(RUNS_ON).map((k) => (
             <span key={k} className="faint" style={{ display: 'inline-flex', alignItems: 'center', gap: '.35rem' }}>
-              <span className={`badge ${s.tone}`}>{s.label}</span> {s.hint}
+              <span className={`badge ${RUNS_ON[k].tone}`}>{t(`runsOn.${k}`)}</span> {t(`runsOn.${k}Hint`)}
             </span>
           ))}
         </div>
@@ -72,16 +72,16 @@ export default function Agents({ agents, hostedOnly = [], foundry, reload, azure
         {foundry && !foundry.available && (
           <div className="err" style={{ marginBottom: '.9rem', borderLeftColor: 'var(--c-gold)',
                                         background: 'rgba(228,192,46,.10)' }}>
-            <strong>Hosted state is unknown.</strong> {foundry.reason}
+            <strong>{t('agents.hostedUnknown')}</strong> {foundry.reason}
           </div>
         )}
 
         <table>
           <thead>
             <tr>
-              <th>agent</th><th style={{ width: '11rem' }}>runs on</th>
-              <th>description</th><th style={{ width: '5rem' }}>temp</th>
-              <th style={{ width: '16rem' }}>actions</th>
+              <th>{t('agents.colAgent')}</th><th style={{ width: '11rem' }}>{t('agents.colRunsOn')}</th>
+              <th>{t('agents.colDescription')}</th><th style={{ width: '5rem' }}>{t('agents.colTemp')}</th>
+              <th style={{ width: '16rem' }}>{t('agents.colActions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -109,17 +109,17 @@ export default function Agents({ agents, hostedOnly = [], foundry, reload, azure
                   <div style={{ display: 'flex', gap: '.3rem', flexWrap: 'wrap' }}>
                     {a.runs_on !== 'foundry' && (
                       <button className="btn btn-outline btn-sm" disabled={!!busy}
-                              title="Show the system prompt this JSON produces"
+                              title={t('agents.promptTitle')}
                               onClick={() => showPrompt(a.name)}>
-                        prompt
+                        {t('agents.prompt')}
                       </button>
                     )}
                     {a.runs_on !== 'foundry' && (
                       <button className="btn btn-outline btn-sm" disabled={!!busy}
-                              title={a.runs_on === 'both' ? 'Update the hosted copy from this JSON' : 'Publish to the Foundry Agent Service'}
+                              title={a.runs_on === 'both' ? t('agents.updateInFoundryTitle') : t('agents.deployToFoundryTitle')}
                               onClick={() => act(a.name, () => api.deployAgent(a.name),
-                                (r) => `${r.action} in Foundry — ${r.agent_id}`)}>
-                        {a.runs_on === 'both' ? 'update in Foundry' : 'deploy to Foundry'}
+                                (r) => t('agents.deployedAction', { action: r.action, id: r.agent_id }))}>
+                        {a.runs_on === 'both' ? t('agents.updateInFoundry') : t('agents.deployToFoundry')}
                       </button>
                     )}
                     {a.hosted && (
@@ -128,16 +128,16 @@ export default function Agents({ agents, hostedOnly = [], foundry, reload, azure
                           <button className="btn btn-sm" style={{ background: 'var(--grad-cta)', color: '#fff' }}
                                   disabled={!!busy}
                                   onClick={() => act(a.name, () => api.deleteHostedAgent(a.hosted.agent_id),
-                                    () => `removed ${a.name} from Foundry`)}>
-                            confirm delete
+                                    () => t('agents.removedAction', { name: a.name }))}>
+                            {t('agents.confirmDelete')}
                           </button>
-                          <button className="btn btn-outline btn-sm" onClick={() => setConfirming(null)}>cancel</button>
+                          <button className="btn btn-outline btn-sm" onClick={() => setConfirming(null)}>{t('agents.cancel')}</button>
                         </>
                       ) : (
                         <button className="btn btn-outline btn-sm" disabled={!!busy}
-                                title="Remove the hosted copy. The local JSON file is untouched."
+                                title={t('agents.removeFromFoundryTitle')}
                                 onClick={() => setConfirming(a.name)}>
-                          remove from Foundry
+                          {t('agents.removeFromFoundry')}
                         </button>
                       )
                     )}
@@ -150,17 +150,17 @@ export default function Agents({ agents, hostedOnly = [], foundry, reload, azure
 
         {busy && <div style={{ marginTop: '.7rem' }}><Spinner label={busy} /></div>}
         {notice && <div className="card" style={{ marginTop: '.8rem', padding: '.6rem .8rem' }}>
-          <span className="badge">done</span> <span className="mono">{notice}</span>
+          <span className="badge">{t('agents.done')}</span> <span className="mono">{notice}</span>
         </div>}
         <Err error={error} />
       </Panel>
 
       {detail && (
-        <Panel title={`${detail.display_name} — the prompt this JSON produces`}>
+        <Panel title={t('agents.promptPanelTitle', { name: detail.display_name })}>
           <p className="faint" style={{ marginTop: 0 }}>{detail.file}</p>
-          <label style={{ marginTop: '.6rem' }}>grounded (retrieval supplied context)</label>
+          <label style={{ marginTop: '.6rem' }}>{t('agents.grounded')}</label>
           <pre className="out">{detail.system_prompt_grounded}</pre>
-          <label style={{ marginTop: '.8rem' }}>plain (no retrieval)</label>
+          <label style={{ marginTop: '.8rem' }}>{t('agents.plain')}</label>
           <pre className="out">{detail.system_prompt_plain}</pre>
           <RawJson data={detail} label="persona JSON" />
         </Panel>

@@ -1,24 +1,65 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from './api'
+import { BrandMark } from './components'
+import { useLanguage } from './i18n.jsx'
 import Agents from './views/Agents'
+import Calculator from './views/Calculator'
 import Chat from './views/Chat'
 import Knowledge from './views/Knowledge'
+import Login from './views/Login'
 import Search from './views/Search'
 import Status from './views/Status'
 import Tools from './views/Tools'
 
+// label is a translation key, resolved with t() at render time so the nav
+// relabels itself instantly when the language switches. clientVisible marks
+// the screens a customer-facing "client" view is allowed to show — the rest
+// (chunking internals, retrieval scores, agent management, raw tool calls,
+// system health) are console/internal-only.
 const VIEWS = [
-  { id: 'chat', label: 'Chat', group: 'Assistant' },
-  { id: 'knowledge', label: 'Knowledge', group: 'Pipeline' },
-  { id: 'search', label: 'Retrieval', group: 'Pipeline' },
-  { id: 'agents', label: 'Agents', group: 'Platform' },
-  { id: 'tools', label: 'Tools', group: 'Platform' },
-  { id: 'status', label: 'Status', group: 'Platform' },
+  { id: 'chat', label: 'nav.chat', group: 'Assistant', clientVisible: true },
+  { id: 'calculator', label: 'nav.calculator', group: 'Assistant', clientVisible: true },
+  { id: 'knowledge', label: 'nav.knowledge', group: 'Pipeline' },
+  { id: 'search', label: 'nav.search', group: 'Pipeline' },
+  { id: 'agents', label: 'nav.agents', group: 'Platform' },
+  { id: 'tools', label: 'nav.tools', group: 'Platform' },
+  { id: 'status', label: 'nav.status', group: 'Platform' },
 ]
+
+const UI_MODE_KEY = 'libra-console-ui-mode'
+const ACCENT_KEY = 'libra-console-accent'
+const SESSION_KEY = 'libra-console-session'
+
+// Each entry: `dark`/`darkLight` drive the accent gradient (theme-independent —
+// the gradient always wants two saturated stops); `lightInk` is the deeper,
+// higher-contrast tone used for --accent specifically on the light theme,
+// mirroring how the original red accent already had --c-red (dark) vs
+// --c-red-ink (light) as two different tones of the same hue.
+const ACCENTS = {
+  red:    { dark: '#e0342f', darkLight: '#ff5b52', lightInk: '#b3261e' },
+  blue:   { dark: '#3b82f6', darkLight: '#60a5fa', lightInk: '#1d4ed8' },
+  teal:   { dark: '#14b8a6', darkLight: '#5eead4', lightInk: '#0f766e' },
+  purple: { dark: '#a855f7', darkLight: '#c084fc', lightInk: '#7e22ce' },
+  green:  { dark: '#22c55e', darkLight: '#86efac', lightInk: '#15803d' },
+  gold:   { dark: '#e4c02e', darkLight: '#f5df6e', lightInk: '#8a6d00' },
+}
+
+function hexToRgba(hex, alpha) {
+  const h = hex.replace('#', '')
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
 
 // Minimal stroke icons (no external assets) — one per nav item, plus the brand mark.
 const ICON_PATHS = {
   chat: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />,
+  calculator: <>
+    <rect x="5" y="2" width="14" height="20" rx="2" />
+    <path d="M9 6h6" />
+    <path d="M8 11h.01" /><path d="M12 11h.01" /><path d="M16 11h.01" />
+    <path d="M8 15h.01" /><path d="M12 15h.01" /><path d="M16 15h.01" />
+    <path d="M8 19h.01" /><path d="M12 19h.01" />
+  </>,
   knowledge: <>
     <path d="M2 4h5a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5H2z" />
     <path d="M22 4h-5a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5H22z" />
@@ -47,6 +88,7 @@ function Icon({ name, className }) {
 }
 
 export default function App() {
+  const { lang, setLang, t } = useLanguage()
   const [view, setView] = useState('chat')
   const [agents, setAgents] = useState([])
   const [hostedOnly, setHostedOnly] = useState([])
@@ -55,6 +97,30 @@ export default function App() {
   const [azure, setAzure] = useState(null)
   const [theme, setTheme] = useState('dark')
   const [menuOpen, setMenuOpen] = useState(true)
+  const [uiMode, setUiMode] = useState(() => {
+    try { return localStorage.getItem(UI_MODE_KEY) || 'console' } catch { return 'console' }
+  })
+  const isClient = uiMode === 'client'
+  const [accentKey, setAccentKey] = useState(() => {
+    try { return localStorage.getItem(ACCENT_KEY) || 'red' } catch { return 'red' }
+  })
+  const [session, setSession] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(SESSION_KEY)) } catch { return null }
+  })
+  const isUserRole = session?.role === 'user'
+  // A "user" role never sees the console — an admin can still flip between the
+  // two, same as before.
+  const effectiveIsClient = isUserRole || isClient
+
+  function login(s) {
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify(s)) } catch { /* storage unavailable */ }
+    setSession(s)
+    if (s.role === 'user') setUiMode('client')
+  }
+  function logout() {
+    try { localStorage.removeItem(SESSION_KEY) } catch { /* storage unavailable */ }
+    setSession(null)
+  }
 
   const loadAgents = useCallback(() => {
     api.agents()
@@ -70,9 +136,38 @@ export default function App() {
 
   useEffect(() => { loadAgents(); loadHealth(); loadAzure() }, [loadAgents, loadHealth, loadAzure])
   useEffect(() => { document.documentElement.dataset.theme = theme }, [theme])
+  // Auto-collapse the nav menu at roughly half a normal desktop screen, so the
+  // logo never has to compete with a row of nav pills for space — the hamburger
+  // still opens it manually at any width.
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 900px)')
+    const apply = () => setMenuOpen(!mq.matches)
+    apply()
+    mq.addEventListener('change', apply)
+    return () => mq.removeEventListener('change', apply)
+  }, [])
+  useEffect(() => {
+    try { localStorage.setItem(UI_MODE_KEY, uiMode) } catch { /* storage unavailable */ }
+  }, [uiMode])
+  useEffect(() => {
+    const a = ACCENTS[accentKey] || ACCENTS.red
+    const root = document.documentElement.style
+    const inkOrBright = theme === 'dark' ? a.dark : a.lightInk
+    root.setProperty('--accent', inkOrBright)
+    root.setProperty('--accent-soft', hexToRgba(inkOrBright, theme === 'dark' ? 0.15 : 0.11))
+    root.setProperty('--grad-accent', `linear-gradient(135deg, ${a.dark} 0%, ${a.darkLight} 100%)`)
+    try { localStorage.setItem(ACCENT_KEY, accentKey) } catch { /* storage unavailable */ }
+  }, [accentKey, theme])
 
-  const groups = [...new Set(VIEWS.map((v) => v.group))]
+  const visibleViews = effectiveIsClient ? VIEWS.filter((v) => v.clientVisible) : VIEWS
+  useEffect(() => {
+    if (!visibleViews.some((v) => v.id === view)) setView('chat')
+  }, [effectiveIsClient])   // eslint-disable-line react-hooks/exhaustive-deps
+
+  const groups = [...new Set(visibleViews.map((v) => v.group))]
   const online = health?.status === 'ok'
+
+  if (!session) return <Login onLogin={login} />
 
   return (
     <div className="app">
@@ -80,37 +175,58 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <button className="menu-toggle" onClick={() => setMenuOpen(!menuOpen)}
-                  title={menuOpen ? 'Hide menu' : 'Show menu'} aria-label="Toggle menu"
+                  title={menuOpen ? t('topbar.hideMenu') : t('topbar.showMenu')} aria-label={t('topbar.toggleMenu')}
                   aria-expanded={menuOpen}>
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M4 6h16" /><path d="M4 12h16" /><path d="M4 18h16" />
             </svg>
           </button>
-          <span className="brand-mark">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
-              <path d="M12 2.5c.55 3.2 1.1 4.7 2.35 5.95S17.3 10.55 20.5 11.1c-3.2.55-4.7 1.1-5.95 2.35S12.55 16.3 12 19.5c-.55-3.2-1.1-4.7-2.35-5.95S6.7 12.45 3.5 11.9c3.2-.55 4.7-1.1 5.95-2.35S11.45 5.7 12 2.5z" />
-            </svg>
-          </span>
+          <BrandMark size={28} />
           <span className="brand-name">Libra Assist Credit Specialist</span>
-          <span className="brand-tag">console</span>
+          <span className="brand-tag">{t('topbar.consoleTag')}</span>
         </div>
 
         <div className="topbar-right">
           <span className="conn-pill">
             <span className={`dot ${online ? '' : 'bad'}`} />
-            {online ? `${health.llm.provider} · ${health.llm.model}` : 'backend offline'}
+            {online ? `${health.llm.provider} · ${health.llm.model}` : t('topbar.backendOffline')}
           </span>
           {azure?.configured && (
             <span className={`badge ${azure.auth === 'identity' ? '' : 'gold'}`} title={azure.auth === 'identity'
-              ? 'Signed in with Microsoft Entra — the Agent Service and control plane are available'
-              : 'Key authentication — the Agent Service and control plane cannot be queried'}>
-              {azure.auth === 'identity' ? 'Entra identity' : 'key auth'}
+              ? t('topbar.entraTitle')
+              : t('topbar.keyAuthTitle')}>
+              {azure.auth === 'identity' ? t('topbar.entraIdentity') : t('topbar.keyAuth')}
             </span>
           )}
+          {!isUserRole && (
+            <button className="theme-toggle" onClick={() => setUiMode(isClient ? 'console' : 'client')}
+                    title={t('topbar.modeToggleTitle')} aria-label={t('topbar.modeToggleTitle')}
+                    style={{ width: 'auto', padding: '0 .6rem', borderRadius: 'var(--r-pill)' }}>
+              {isClient ? t('topbar.modeClient') : t('topbar.modeConsole')}
+            </button>
+          )}
+          <select value={accentKey} onChange={(e) => setAccentKey(e.target.value)}
+                  title={t('topbar.accentColor')} aria-label={t('topbar.accentColor')}
+                  style={{ width: 'auto', minWidth: 0, height: '34px', padding: '0 .6rem',
+                           borderRadius: 'var(--r-pill)', background: 'var(--surface-2)',
+                           border: '1px solid var(--border)', color: 'var(--text-muted)', fontSize: '.8rem' }}>
+            {Object.keys(ACCENTS).map((key) => <option key={key} value={key}>{t(`accent.${key}`)}</option>)}
+          </select>
+          <button className="theme-toggle" onClick={() => setLang(lang === 'en' ? 'ro' : 'en')}
+                  title={t('topbar.language')} aria-label={t('topbar.language')}>
+            {lang === 'en' ? 'RO' : 'EN'}
+          </button>
           <button className="theme-toggle" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                  title={theme === 'dark' ? 'Switch to light' : 'Switch to dark'} aria-label="Toggle theme">
+                  title={theme === 'dark' ? t('topbar.switchToLight') : t('topbar.switchToDark')}
+                  aria-label={t('topbar.toggleTheme')}>
             ◐
+          </button>
+          <span className="brand-tag" title={session.role}>{t('topbar.loggedInAs', { name: session.name })}</span>
+          <button className="theme-toggle" onClick={logout}
+                  title={t('topbar.logout')} aria-label={t('topbar.logout')}
+                  style={{ width: 'auto', padding: '0 .6rem', borderRadius: 'var(--r-pill)' }}>
+            {t('topbar.logout')}
           </button>
         </div>
       </header>
@@ -119,10 +235,10 @@ export default function App() {
         <nav className="subnav">
           {groups.map((g) => (
             <div className="subnav-group" key={g}>
-              {VIEWS.filter((v) => v.group === g).map((v) => (
+              {visibleViews.filter((v) => v.group === g).map((v) => (
                 <button key={v.id} className={`nav-pill ${view === v.id ? 'active' : ''}`}
-                        onClick={() => setView(v.id)} title={v.label}>
-                  <Icon name={v.id} /><span>{v.label}</span>
+                        onClick={() => setView(v.id)} title={t(v.label)}>
+                  <Icon name={v.id} /><span>{t(v.label)}</span>
                 </button>
               ))}
             </div>
@@ -132,7 +248,8 @@ export default function App() {
       </div>
 
       <main className="main">
-        {view === 'chat' && <Chat agents={agents} hostedOnly={hostedOnly} foundry={foundry} />}
+        {view === 'chat' && <Chat agents={agents} hostedOnly={hostedOnly} foundry={foundry} clientMode={effectiveIsClient} />}
+        {view === 'calculator' && <Calculator />}
         {view === 'knowledge' && <Knowledge />}
         {view === 'search' && <Search />}
         {view === 'agents' && <Agents agents={agents} hostedOnly={hostedOnly} foundry={foundry}

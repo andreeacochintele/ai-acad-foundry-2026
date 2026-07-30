@@ -133,6 +133,14 @@ class SearchResponse(BaseModel):
 
 
 # --- generation ---------------------------------------------------------------
+class ChatTurn(BaseModel):
+    """One prior turn in the conversation — the backend stores no session state
+    itself (see /sessions for that), so the frontend resends recent history on
+    every call and it is folded into the prompt as context for follow-ups."""
+    role: Literal["user", "assistant"]
+    text: str
+
+
 class AskRequest(BaseModel):
     model_config = {"json_schema_extra": {"examples": [{
         "question": "What fee does Libra Bank charge for early mortgage repayment?",
@@ -142,6 +150,12 @@ class AskRequest(BaseModel):
     }]}}
 
     question: str = Field(..., min_length=1)
+    history: list[ChatTurn] = Field(
+        default_factory=list,
+        description="Prior turns in this conversation, oldest first. Only `question` is "
+                    "embedded for retrieval — history is folded into the prompt as context "
+                    "so follow-up questions ('and the second option?') work.",
+    )
     use_rag: bool = Field(True, description="false = plain LLM; true = retrieve then augment")
     top_k: Optional[int] = Field(None, ge=1, le=50)
     temperature: Optional[float] = Field(None, ge=0, le=2)

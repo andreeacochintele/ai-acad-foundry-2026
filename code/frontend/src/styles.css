@@ -11,6 +11,7 @@
   --r-xs: 7px; --r-sm: 10px; --r: 13px; --r-lg: 18px; --r-xl: 22px; --r-pill: 999px;
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  --font-serif: 'Playfair Display', 'Source Serif 4', Georgia, 'Times New Roman', serif;
 }
 
 /* dark (default — it is a console) */
@@ -45,19 +46,23 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; }
 .app-header { position: sticky; top: 0; z-index: 30; display: flex; flex-direction: column; }
 
 .topbar {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 1rem; padding: .7rem 1.3rem; background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  gap: .5rem 1rem; padding: .7rem 1.3rem; background: var(--surface); border-bottom: 1px solid var(--border);
 }
-.brand { display: flex; align-items: center; gap: .6rem; min-width: 0; }
+.brand { display: flex; align-items: center; gap: .6rem; min-width: 0; flex: 1 1 auto; }
 .menu-toggle {
   flex: 0 0 auto; width: 32px; height: 32px; border-radius: var(--r-sm); margin-right: .2rem;
   display: flex; align-items: center; justify-content: center; cursor: pointer;
   background: var(--surface-2); border: 1px solid var(--border); color: var(--text-muted); transition: .15s;
 }
 .menu-toggle:hover { color: var(--accent); border-color: var(--accent); }
-.brand-mark { flex: 0 0 auto; width: 34px; height: 34px; border-radius: var(--r-sm); background: var(--grad-accent); color: var(--c-on-accent); display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 12px -4px rgba(224,52,47,.5); }
-.brand-name { font-weight: 800; font-size: 1.08rem; letter-spacing: -.01em; line-height: 1.2; white-space: nowrap;
+.brand-mark { flex: 0 0 auto; width: 38px; height: 38px; border-radius: 50%; background: var(--grad-accent); color: var(--c-on-accent); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 16px -4px rgba(224,52,47,.55), inset 0 0 0 1px rgba(255,255,255,.18); }
+.brand-name { font-family: var(--font-sans); font-weight: 800; font-style: normal; font-size: 1.4rem;
+  letter-spacing: -.01em; line-height: 1.1; white-space: nowrap; color: var(--accent);
   overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+@supports not (background-clip: text) {
+  .brand-name { background: none; -webkit-text-fill-color: initial; color: var(--accent); }
+}
 .brand-tag { font-size: .64rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--text-faint);
   background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-pill); padding: .2em .6em; white-space: nowrap; }
 
@@ -67,7 +72,8 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; }
 .conn-pill .dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; background: var(--accent); }
 .conn-pill .dot.bad { background: var(--c-crimson); }
 .theme-toggle { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  background: var(--surface-2); border: 1px solid var(--border); color: var(--text-muted); cursor: pointer; transition: .15s; }
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--text-muted); cursor: pointer; transition: .15s;
+  font-size: .68rem; font-weight: 700; letter-spacing: .02em; }
 .theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
 
 .subnav {
@@ -194,7 +200,7 @@ pre.out { background: var(--code-bg); border: 1px solid var(--border); border-ra
 .msg-row.user .msg-avatar { background: var(--grad-accent); }
 .msg-row.bot .msg-avatar { background: var(--grad-cta); }
 .msg-row.err .msg-avatar { background: var(--c-crimson); }
-.msg { padding: .75rem 1.05rem; border-radius: var(--r-xl); white-space: pre-wrap; word-break: break-word; min-width: 0; }
+.msg { padding: .75rem 1.05rem; border-radius: var(--r-xl); white-space: pre-wrap; word-break: break-word; min-width: 0; font-size: 12px; }
 .msg-row.user .msg { background: var(--grad-accent); color: var(--c-on-accent); font-weight: 500; border-top-right-radius: var(--r-xs); }
 .msg-row.bot .msg { background: var(--surface); border: 1px solid var(--border); border-top-left-radius: var(--r-xs); }
 .msg-row.err .msg { background: rgba(199,58,82,.12); border: 1px solid var(--c-crimson); border-top-left-radius: var(--r-xs); }
