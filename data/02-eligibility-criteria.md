@@ -6,7 +6,7 @@ effective: 2026-01-15
 version: 3
 ---
 
-To qualify for a Standard Mortgage at Libra Bank, an applicant must meet all of
+To qualify for a Standard Mortgage at Moch Bank, an applicant must meet all of
 the following conditions.
 
 **Age.** The applicant must be at least 21 years old at application, and the

@@ -6,7 +6,7 @@ effective: 2026-01-15
 version: 1
 ---
 
-Libra Bank applies a rate discount to mortgages on properties with a strong
+Moch Bank applies a rate discount to mortgages on properties with a strong
 energy performance certificate (EPC), on any of the Standard, First-Time
 Buyer, or Refinancing Mortgage products.
 

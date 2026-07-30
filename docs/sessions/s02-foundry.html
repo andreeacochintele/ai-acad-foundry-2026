@@ -195,7 +195,7 @@
           <div class="dg-stack">
             <div class="dg-row">
               <div class="dg-box">Your scripts</div>
-              <div class="dg-box">Libra Assist (soon)</div>
+              <div class="dg-box">Moch Assist (soon)</div>
               <div class="dg-box dg-box--muted">Any team's app</div>
             </div>
             <div class="dg-row"><span class="dg-arrow" style="margin-inline:auto;">↓ one authenticated front door ↓</span></div>
@@ -406,7 +406,7 @@ print(reply.usage)                            # prompt_tokens, completion_tokens
           proposes a plan, <em>you review the plan</em>, the agent implements, and you verify the
           result against the spec before anything is committed. The human owns intent and judgment;
           the agent owns keystrokes. Tomorrow you will watch the entire loop run for real, building
-          the skeleton of Libra Assist from a one-page spec:</p>
+          the skeleton of Moch Assist from a one-page spec:</p>
         <div class="diagram">
           <div class="dg-row">
             <div class="dg-box">Idea</div>
@@ -443,7 +443,7 @@ print(reply.usage)                            # prompt_tokens, completion_tokens
         <h3>Step 1 — a clean project (≈5′)</h3>
         <div class="code-block">
           <span class="code-block__label">terminal</span>
-          <pre><code>mkdir libra-lab && cd libra-lab
+          <pre><code>mkdir moch-lab && cd moch-lab
 python -m venv .venv
 .venv\Scripts\activate           # Windows      (macOS/Linux: source .venv/bin/activate)
 pip install azure-ai-inference azure-identity
@@ -464,13 +464,13 @@ az login                         # if you haven't this morning</code></pre>
           If instead you meet an error, jump to the troubleshooting table below — the four failures
           it lists cover essentially everything.</p>
 
-        <h3>Step 3 — Libra Assist speaks its first words (≈5′)</h3>
+        <h3>Step 3 — Moch Assist speaks its first words (≈5′)</h3>
         <p class="prose">Change the system prompt — nothing else — and observe how completely it
           changes the product:</p>
         <div class="code-block">
           <span class="code-block__label">hello_foundry.py · the persona line</span>
           <pre><code>{"role": "system", "content":
-    "You are Libra Assist, the internal AI assistant of a retail bank. "
+    "You are Moch Assist, the internal AI assistant of a retail bank. "
     "Answer precisely and professionally, in English, two short paragraphs maximum. "
     "If a question needs data you don't have, say exactly what is missing."},</code></pre>
         </div>
@@ -517,7 +517,7 @@ for update in stream:
 
         <div class="callout callout--success">
           <p class="callout__title">✅ You are done when</p>
-          <p>The model answers <em>as Libra Assist</em> from your own script, you can say how many
+          <p>The model answers <em>as Moch Assist</em> from your own script, you can say how many
             tokens the call consumed, and you can explain why there is no key anywhere in your
             code.</p>
         </div>
@@ -549,7 +549,7 @@ for update in stream:
           wrapped around every call — and you have felt it concretely: your CLI sign-in was the
           badge, your deployment name was the indirection, the <code>usage</code> object was the
           meter. You can argue the three lanes like an architect and default to the governed one
-          for bank work. And Libra Assist exists — one system prompt old, already answering in
+          for bank work. And Moch Assist exists — one system prompt old, already answering in
           character from your own script. Tomorrow it becomes an application: a spec on one page,
           an AI agent building the skeleton, and by noon a chat interface on your own machine
           talking to your own deployment.</p>
@@ -614,7 +614,7 @@ for update in stream:
               and verify: <code>git --version</code> prints a version.</li>
             <li>Read the first three sections of <a href="../topics/ref-git.html">How git works</a> —
               "Why version control", "Snapshots, not diffs" and "The three areas" (~8 minutes).</li>
-            <li>Write down <strong>one feature you would want Libra Assist to have</strong>, in two
+            <li>Write down <strong>one feature you would want Moch Assist to have</strong>, in two
               or three sentences. Tomorrow we turn ideas exactly like it into specifications — and
               some of them into code.</li>
           </ol>
@@ -636,7 +636,7 @@ for update in stream:
     <button class="btn" data-nav="theme" title="Toggle theme" aria-label="Toggle theme">◐</button>
   </nav>
   <footer class="site-footer">
-    Session 2 · Microsoft Foundry — AI Engineering on Azure · Libra Bank Academy
+    Session 2 · Microsoft Foundry — AI Engineering on Azure · Moch Bank Academy
   </footer>
 
   <script src="../../resources/nav.js"></script>

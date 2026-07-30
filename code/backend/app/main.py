@@ -547,13 +547,18 @@ def agents_list() -> AgentListResponse:
                                         hosted=HostedAgent(**hosted) if hosted else None))
 
     local_names = {p.name for p in personas}
+    # The Foundry project is shared with the whole class, so hosted_by_name is full of
+    # classmates' agents. Only your own personas plus an explicit allow-list (.env,
+    # FOUNDRY_VISIBLE_EXTRA) show up here — everyone else's stays hidden from the picker.
+    visible_extra = {n.strip() for n in settings.foundry_visible_extra.split(",") if n.strip()}
     hosted_only = [
         PersonaSummary(
             name=a["name"], display_name=a["name"],
             description=a.get("description") or "Created in Foundry — no local persona file.",
             runs_on="foundry", hosted=HostedAgent(**a),
         )
-        for name, a in hosted_by_name.items() if name not in local_names
+        for name, a in hosted_by_name.items()
+        if name not in local_names and name in visible_extra
     ]
 
     return AgentListResponse(

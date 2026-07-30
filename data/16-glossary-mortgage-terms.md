@@ -18,7 +18,7 @@ monthly income that goes toward all loan installments combined, including
 the new mortgage.
 
 **Conditional approval** — a written offer stating the approved loan amount,
-rate, and term, valid for a limited period (60 days at Libra Bank), pending
+rate, and term, valid for a limited period (60 days at Moch Bank), pending
 final legal and title checks.
 
 **Amortization** — the gradual repayment of a loan's principal over time

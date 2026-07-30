@@ -6,7 +6,7 @@ effective: 2026-01-15
 version: 2
 ---
 
-Libra Bank mortgages use a two-phase interest rate structure: a fixed
+Moch Bank mortgages use a two-phase interest rate structure: a fixed
 introductory period followed by a variable period for the remainder of the
 loan term.
 

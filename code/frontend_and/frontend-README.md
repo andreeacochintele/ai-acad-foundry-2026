@@ -1,8 +1,8 @@
-# Libra Assist — Case Console (v2)
+# Moch Assist — Case Console (v2)
 
 A single-file HTML/JS chat frontend for the RAG Teaching API. This is the
 second pass on the Assignment 3, Part 7 frontend — same job (a
-conversational Libra Assist, not an API explorer), a more deliberate visual
+conversational Moch Assist, not an API explorer), a more deliberate visual
 identity, and a few features worth having beyond the assignment's minimum.
 
 ## How to run it

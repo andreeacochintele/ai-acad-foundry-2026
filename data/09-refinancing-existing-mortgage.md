@@ -6,7 +6,7 @@ effective: 2026-01-15
 version: 1
 ---
 
-Customers with an existing mortgage, whether at Libra Bank or another
+Customers with an existing mortgage, whether at Moch Bank or another
 lender, can apply for a Refinancing Mortgage to obtain a new rate, change the
 loan term, or consolidate the remaining balance with other debt.
 
@@ -14,7 +14,7 @@ loan term, or consolidate the remaining balance with other debt.
 apply, except the down payment requirement is replaced by a maximum
 refinance LTV of 80 percent of the property's current appraised value.
 
-**Exit fees from the previous lender.** Libra Bank does not cover any early
+**Exit fees from the previous lender.** Moch Bank does not cover any early
 repayment or exit fee charged by the customer's current lender. The customer
 should confirm this cost with their existing bank before applying.
 

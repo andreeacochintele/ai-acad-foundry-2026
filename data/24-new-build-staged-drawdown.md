@@ -29,7 +29,7 @@ amount actually drawn down at any point, not on the full approved loan
 amount, until the final tranche is released at handover — at which point
 the loan converts to a standard amortizing mortgage on its normal schedule.
 
-**Developer default.** If the developer fails to complete construction, Libra
+**Developer default.** If the developer fails to complete construction, Moch
 Bank's exposure is limited to the tranches already released; the customer
 remains responsible for repaying those tranches regardless of the
 developer's failure, and any dispute with the developer is between the

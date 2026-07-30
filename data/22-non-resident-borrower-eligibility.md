@@ -6,7 +6,7 @@ effective: 2026-01-15
 version: 1
 ---
 
-Libra Bank lends to foreign nationals and Romanian citizens who are tax
+Moch Bank lends to foreign nationals and Romanian citizens who are tax
 resident abroad, under the Standard Mortgage product, with the additional
 conditions below layered on top of the standard eligibility criteria.
 

@@ -6,7 +6,7 @@ effective: 2026-01-15
 version: 1
 ---
 
-Beyond the interest rate, a Libra Bank mortgage carries the following one-time
+Beyond the interest rate, a Moch Bank mortgage carries the following one-time
 costs. These are separate from the early repayment fee schedule, which applies
 only when repaying the loan ahead of schedule.
 
@@ -17,7 +17,7 @@ upfront.
 
 **Property appraisal fee (appraiser, not the bank).** Paid directly to the
 independent appraiser at step 5 of the application process, typically
-150–300 EUR depending on property size and type. Libra Bank does not collect
+150–300 EUR depending on property size and type. Moch Bank does not collect
 or mark up this fee.
 
 **Land Registry mortgage lien registration fee.** A flat 60 EUR, paid to the

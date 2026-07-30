@@ -6,12 +6,12 @@ effective: 2026-01-15
 version: 1
 ---
 
-Two insurance policies are mandatory for the life of a Libra Bank mortgage;
+Two insurance policies are mandatory for the life of a Moch Bank mortgage;
 a third is optional.
 
 **Property insurance (mandatory).** The property must be insured against
 fire, flood, and structural damage for at least the outstanding loan amount,
-with Libra Bank named as loss payee. The customer may use any insurer; the
+with Moch Bank named as loss payee. The customer may use any insurer; the
 bank does not require its own policy be used.
 
 **Life insurance (mandatory).** The primary borrower must hold a life

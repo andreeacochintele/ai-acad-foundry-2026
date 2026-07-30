@@ -6,7 +6,7 @@ effective: 2026-01-15
 version: 1
 ---
 
-The following documents are required for a mortgage application at Libra
+The following documents are required for a mortgage application at Moch
 Bank. Requirements differ slightly for employed and self-employed applicants.
 
 **All applicants**

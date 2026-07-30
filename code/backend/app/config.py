@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     azure_ai_project_endpoint: str = ""     # Foundry portal → project → Overview
     azure_openai_endpoint: str = ""          # the OpenAI-compatible surface of the same resource
     foundry_agent_id: str = ""              # printed by scripts/deploy_agent.py
+    foundry_visible_extra: str = ""         # comma-separated hosted agent names to show in
+                                             # "hosted_only" besides your own personas — this
+                                             # project's Foundry resource is shared with the
+                                             # whole class, so by default only your own local
+                                             # personas are listed and every classmate's agent
+                                             # is hidden from your console's agent picker
 
     # --- Azure AI Search (the managed alternative to the local vector store) ---
     azure_search_endpoint: str = ""          # https://<service>.search.windows.net

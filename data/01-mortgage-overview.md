@@ -6,7 +6,7 @@ effective: 2026-01-15
 version: 2
 ---
 
-Libra Bank offers residential mortgage loans to retail customers purchasing or
+Moch Bank offers residential mortgage loans to retail customers purchasing or
 refinancing a primary residence, a secondary home, or a rental property within
 Romania. Three product lines are available: the Standard Mortgage, the First-Time
 Buyer Mortgage, and the Refinancing Mortgage.
@@ -21,8 +21,8 @@ reduced down payment requirement, described in a separate document. It applies
 only to applicants who have never held property title in their name, in Romania
 or abroad.
 
-The Refinancing Mortgage allows customers with an existing mortgage — at Libra
-Bank or another lender — to move their loan to Libra Bank, generally to obtain a
+The Refinancing Mortgage allows customers with an existing mortgage — at Moch
+Bank or another lender — to move their loan to Moch Bank, generally to obtain a
 better interest rate or to consolidate the remaining balance.
 
 All three products share the same interest rate structure, the same early

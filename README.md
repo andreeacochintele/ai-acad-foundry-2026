@@ -1,7 +1,7 @@
-# AI Engineering on Azure — Libra Bank Academy
+# AI Engineering on Azure — Moch Bank Academy
 
-Course materials for **Lucian Gruia's** module (sessions 9–15) of the Libra Bank
-Academy, delivered by **Digital Stack** for **Libra Bank**. Seven sessions ×
+Course materials for **Lucian Gruia's** module (sessions 9–15) of the Moch Bank
+Academy, delivered by **Digital Stack** for **Moch Bank**. Seven sessions ×
 2.5h = 17.5h, Wed 22 Jul → Thu 30 Jul 2026, on Azure AI Foundry.
 
 The module is one continuous build: students extend the agent they already built

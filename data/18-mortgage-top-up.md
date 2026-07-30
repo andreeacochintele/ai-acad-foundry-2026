@@ -6,7 +6,7 @@ effective: 2026-01-15
 version: 1
 ---
 
-A top-up lets an existing Libra Bank mortgage customer borrow an additional
+A top-up lets an existing Moch Bank mortgage customer borrow an additional
 amount secured against the same property, without repaying or restructuring
 the original loan. This is distinct from refinancing, which moves or replaces
 the existing loan itself — a top-up sits alongside it as a second tranche.

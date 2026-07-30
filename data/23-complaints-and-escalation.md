@@ -7,10 +7,10 @@ version: 1
 ---
 
 Any customer disagreeing with a mortgage decision, a fee charged, or the
-service received can raise a complaint, in writing, through any Libra Bank
+service received can raise a complaint, in writing, through any Moch Bank
 branch, the mobile application, or the phone banking line.
 
-**Acknowledgement.** Libra Bank acknowledges a complaint within 2 business
+**Acknowledgement.** Moch Bank acknowledges a complaint within 2 business
 days of receiving it, in writing, with a reference number.
 
 **Resolution timeline.** A full written response is provided within 15
@@ -25,7 +25,7 @@ complaint about being declined for a mortgage does not entitle the customer
 to approval; it can only trigger a re-review of the original decision for
 process errors (for example, income verified against the wrong document).
 
-**External escalation.** If the customer is not satisfied with Libra Bank's
+**External escalation.** If the customer is not satisfied with Moch Bank's
 final written response, or 30 calendar days have passed without one, the
 complaint can be escalated to the Financial Consumer Dispute Resolution
 Centre (CSALB), an independent body, free of charge to the customer.

@@ -6,7 +6,7 @@ effective: 2026-01-15
 version: 2
 ---
 
-Applying for a Libra Bank mortgage follows nine steps, in order. Skipping
+Applying for a Moch Bank mortgage follows nine steps, in order. Skipping
 ahead is not possible — each step's output is required as input for the next.
 
 1. **Pre-qualification.** The customer completes an online or in-branch

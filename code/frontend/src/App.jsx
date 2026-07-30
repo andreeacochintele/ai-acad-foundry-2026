@@ -188,11 +188,13 @@ export default function App() {
         </div>
 
         <div className="topbar-right">
-          <span className="conn-pill">
-            <span className={`dot ${online ? '' : 'bad'}`} />
-            {online ? `${health.llm.provider} · ${health.llm.model}` : t('topbar.backendOffline')}
-          </span>
-          {azure?.configured && (
+          {!isUserRole && (
+            <span className="conn-pill">
+              <span className={`dot ${online ? '' : 'bad'}`} />
+              {online ? `${health.llm.provider} · ${health.llm.model}` : t('topbar.backendOffline')}
+            </span>
+          )}
+          {!isUserRole && azure?.configured && (
             <span className={`badge ${azure.auth === 'identity' ? '' : 'gold'}`} title={azure.auth === 'identity'
               ? t('topbar.entraTitle')
               : t('topbar.keyAuthTitle')}>

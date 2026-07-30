@@ -13,12 +13,23 @@ Config:  AZURE_SPEECH_KEY, AZURE_SPEECH_REGION, AZURE_SPEECH_VOICE
 """
 from __future__ import annotations
 
+import re
+
 import httpx
 
 from ..config import settings
 
 # 24 kHz mono PCM in a RIFF container — plays in any browser, no codec needed
 TTS_FORMAT = "riff-24khz-16bit-mono-pcm"
+
+# Two or more consecutive Title-Case words (hyphens and short connectors like
+# "to"/"of" allowed in between) — catches English product names such as
+# "Standard Mortgage" or "First-Time Buyer Mortgage" embedded in otherwise
+# Romanian text, so they can be spoken with an English voice instead of the
+# surrounding locale guessing at their pronunciation.
+_ENGLISH_TERM_RE = re.compile(
+    r"\b[A-Z][a-zA-Z]+(?:[-\s](?:of|to|the|for|and|[A-Z][a-zA-Z]+))+\b"
+)
 
 
 class SpeechUnavailable(Exception):
@@ -77,7 +88,7 @@ def synthesize(text: str, voice: str | None = None) -> bytes:
 
     ssml = (
         f'<speak version="1.0" xml:lang="{locale}">'
-        f'<voice xml:lang="{locale}" name="{voice}">{_escape(text)}</voice>'
+        f'<voice xml:lang="{locale}" name="{voice}">{_tag_english_terms(text, locale)}</voice>'
         f"</speak>"
     )
     url = f"https://{region}.tts.speech.microsoft.com/cognitiveservices/v1"
@@ -154,3 +165,21 @@ def transcribe(audio: bytes, content_type: str = "audio/wav", language: str | No
 
 def _escape(text: str) -> str:
     return (text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+
+
+def _tag_english_terms(text: str, locale: str) -> str:
+    """Wrap embedded English phrases in <lang xml:lang="en-US"> inside an
+    otherwise non-English voice, so terms like "Standard Mortgage" are spoken
+    with English pronunciation instead of the surrounding locale's. A no-op
+    when the voice is already English."""
+    if locale.startswith("en"):
+        return _escape(text)
+
+    pieces = []
+    last = 0
+    for m in _ENGLISH_TERM_RE.finditer(text):
+        pieces.append(_escape(text[last:m.start()]))
+        pieces.append(f'<lang xml:lang="en-US">{_escape(m.group())}</lang>')
+        last = m.end()
+    pieces.append(_escape(text[last:]))
+    return "".join(pieces)

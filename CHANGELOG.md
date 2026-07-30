@@ -92,6 +92,56 @@ Uncommitted — everything below is new working-tree state on top of `68ad027`.
   every internal pipeline screen (Knowledge, Retrieval, Agents, Tools,
   Status), leaving only Chat and the Calculator — what a customer, not a
   developer, should see.
+- Extended to Chat's reply diagnostics, which used to show regardless of role:
+  `Chat.jsx`'s `clientMode` prop now also hides the agent badge, the
+  grounded/no-retrieval badge, mode, model, token counts, the fact-check
+  verdict, retrieved passages, and the exact system/user prompt sent — a
+  `user` session sees only the answer and its citations.
+- `App.jsx`: the topbar's backend-connection pill (provider/model, or
+  "backend offline") and the Azure auth badge are hidden the same way in
+  client view — internal ops status, not something a customer console
+  should surface.
+
+### Foundry hosted-agent visibility allow-list
+
+- The class shares one Foundry project, so `GET /agents`'s `hosted_only`
+  list used to show every classmate's deployed agent alongside your own.
+  New `foundry_visible_extra` setting (`config.py`, env `FOUNDRY_VISIBLE_EXTRA`):
+  a comma-separated list of hosted agent names to additionally surface
+  besides your own local personas.
+- `main.py`'s `agents_list()` now filters `hosted_by_name` down to
+  `local_names` plus that allow-list, instead of "everything not already
+  local" — classmates' agents stay hidden from your picker by default.
+
+### Corpus ingestion
+
+- `scripts/ingest_corpus.py` also skips `data/questions-round2.md` (a second
+  eval/question set, same treatment as `questions.md`) so it isn't ingested
+  as corpus content.
+
+### No more `[1]` citation markers in the visible answer
+
+- `require_citations` flipped to `false` on `default.json`,
+  `andreea-cochintele-credit-specialist.json`, and `lyrical.json` — the
+  model no longer inlines `[1]`, `[2]`, … into the answer text
+  (`Persona.system_prompt` in `persona.py` only adds that instruction when
+  `require_citations` is true). The evidence is still there for anyone who
+  wants it, just in the "Retrieved passages" and "exact prompt" sections
+  already shown per-message — it doesn't need to double up as bracket
+  clutter in the prose itself. `compliance.json`'s citations stay on: citing
+  everything is that persona's whole reason to exist.
+
+### Text-to-speech now pronounces embedded English terms correctly
+
+- `services/speech.py::synthesize` used to wrap the whole answer in a single
+  `<voice xml:lang="{locale}">`, so a Romanian voice would sound out English
+  product names (e.g. "Standard Mortgage", "First-Time Buyer Mortgage")
+  phonetically instead of pronouncing them as English words.
+- New `_tag_english_terms`: finds runs of two or more consecutive Title-Case
+  words (`_ENGLISH_TERM_RE`) and wraps each in a nested
+  `<lang xml:lang="en-US">…</lang>` inside the outer voice tag, so Azure
+  Speech switches pronunciation for just that span. No-op when the voice is
+  already English.
 
 ### Full English + Romanian UI (i18n)
 

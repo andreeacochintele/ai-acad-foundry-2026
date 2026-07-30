@@ -1,4 +1,4 @@
-# Question set — Libra Bank Mortgages
+# Question set — Moch Bank Mortgages
 
 15 questions, in three groups, designed against the corpus in `data/`. For
 each: the expected answer, which document(s) contain it, and — once tested
@@ -32,7 +32,7 @@ right document(s) in `retrieved`.
 - **Source:** `13-late-payment-penalties.md`
 - **Actual result:** ✅ Correct — 0.05%/day, from day 6 onward.
 
-### A5. By what age must a Libra Bank mortgage be fully repaid?
+### A5. By what age must a Moch Bank mortgage be fully repaid?
 - **Expected:** Before the borrower turns 70.
 - **Source:** `02-eligibility-criteria.md`
 - **Actual result:** ✅ Correct — age 70, plus correctly mentioned the minimum age (21) unprompted.
@@ -105,7 +105,7 @@ right document(s) in `retrieved`.
 ## Group C — Must refuse (genuinely not in the corpus)
 
 ### C1. What is the interest rate on your student loans?
-- **Expected:** A refusal — Libra Bank (fictional) does not offer student
+- **Expected:** A refusal — Moch Bank (fictional) does not offer student
   loans; this is nowhere in the corpus, on purpose.
 - **Source:** none (deliberately absent)
 - **Actual result:** ✅ Correctly refused. Note: retrieved chunks scored ~0.40–0.46 (mortgage rate info, semantically nearby but off-topic) — much higher than a fully unrelated query like "chocolate cake" (~0.06), but the model still read the content and refused rather than being misled by the merely-plausible-looking context.
@@ -119,7 +119,7 @@ right document(s) in `retrieved`.
   EURIBOR is offered just because it's a real, plausible-sounding term)
 - **Actual result:** ✅ Correctly refused — explicitly said "No", cited the IRCC-based mechanism, and stated the retrieved passages contain no reference to EURIBOR. This is the single most important result in the whole set.
 
-### C3. Can I get a Libra Bank mortgage for a vacation home outside Romania?
+### C3. Can I get a Moch Bank mortgage for a vacation home outside Romania?
 - **Expected:** A refusal, or "not specified" — the corpus describes
   eligible property types (apartments, houses, land with a permit, mixed-use
   units) but never states a country restriction one way or the other, and

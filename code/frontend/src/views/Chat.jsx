@@ -611,13 +611,13 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
                     </svg>
                     {speakingIdx === i ? t('chat.stop') : t('chat.listen')}
                   </button>
-                  <span className="badge">{d.agent?.display_name || t('chat.agentFallback')}</span>
-                  <span className={`badge ${d.augmented ? 'gold' : 'muted'}`}>{d.augmented ? t('chat.grounded') : t('chat.noRetrieval')}</span>
-                  <span className="badge muted">{d.agent?.mode}</span>
-                  <span className="badge muted">{d.model}</span>
-                  {d.usage && <span className="badge muted">{d.usage.prompt_tokens}↑ {d.usage.completion_tokens}↓ {t('chat.tokens')}</span>}
+                  {!clientMode && <span className="badge">{d.agent?.display_name || t('chat.agentFallback')}</span>}
+                  {!clientMode && <span className={`badge ${d.augmented ? 'gold' : 'muted'}`}>{d.augmented ? t('chat.grounded') : t('chat.noRetrieval')}</span>}
+                  {!clientMode && <span className="badge muted">{d.agent?.mode}</span>}
+                  {!clientMode && <span className="badge muted">{d.model}</span>}
+                  {!clientMode && d.usage && <span className="badge muted">{d.usage.prompt_tokens}↑ {d.usage.completion_tokens}↓ {t('chat.tokens')}</span>}
                 </div>
-                {d.fact_check && (
+                {!clientMode && d.fact_check && (
                   <div className="src" style={{ marginTop: '.55rem',
                        borderLeftColor: d.fact_check.verdict === 'supported' ? 'var(--accent)'
                          : d.fact_check.verdict === 'contradicted' ? 'var(--c-crimson)' : 'var(--c-gold)' }}>
@@ -641,7 +641,7 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
                     )}
                   </div>
                 )}
-                {d.retrieved?.length > 0 && (
+                {!clientMode && d.retrieved?.length > 0 && (
                   <details className="sources">
                     <summary>{t(d.retrieved.length > 1 ? 'chat.retrievedPassageMany' : 'chat.retrievedPassageOne', { n: d.retrieved.length })}</summary>
                     {d.retrieved.map((h, j) => (
@@ -652,10 +652,12 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
                     ))}
                   </details>
                 )}
+                {!clientMode && (
                 <details className="sources">
                   <summary>{t('chat.exactPrompt')}</summary>
                   <pre className="out" style={{ marginTop: '.4rem' }}>{`SYSTEM:\n${d.system_prompt}\n\nUSER:\n${d.prompt_sent}`}</pre>
                 </details>
+                )}
               </div>
               </div>
             )

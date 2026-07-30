@@ -6,7 +6,7 @@ effective: 2026-01-15
 version: 1
 ---
 
-Libra Bank finances the following property types under its mortgage
+Moch Bank finances the following property types under its mortgage
 products: apartments in blocks of flats, individual houses, duplexes, and
 land with an approved building permit for self-build projects.
 

@@ -10,7 +10,7 @@
   ],
   "temperature": 0.2,
   "max_tokens": 2500,
-  "require_citations": true,
+  "require_citations": false,
   "refuse_when_unsupported": true,
   "tools": []
 }

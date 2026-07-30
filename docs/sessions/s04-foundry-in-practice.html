@@ -639,7 +639,7 @@ print("credential type:", type(credential).__name__)</code></pre>
         <p class="prose">Resource names appear in URLs, IDs, logs and bills forever, and many
           cannot be changed after creation. Conventions cost nothing now and save hours later; a
           widely used pattern is <code>&lt;type-abbreviation&gt;-&lt;workload&gt;-&lt;environment&gt;</code>
-          — <code>rg-ai-course</code>, <code>rg-libra-assist-prod</code>. Two constraints to
+          — <code>rg-ai-course</code>, <code>rg-moch-assist-prod</code>. Two constraints to
           remember: some resource names must be <em>globally unique</em> across all of Azure
           (anything that becomes a public hostname, including your Foundry account, whose name ends
           up inside <code>&lt;name&gt;.services.ai.azure.com</code>), and most disallow spaces and
@@ -955,7 +955,7 @@ embeddings = EmbeddingsClient(
 # Later, when retrieval arrives (Session 5) — same credential, different service & scope:
 # from azure.search.documents import SearchClient
 # search = SearchClient(endpoint="https://&lt;svc&gt;.search.windows.net",
-#                       index_name="libra-docs", credential=credential)
+#                       index_name="moch-docs", credential=credential)
 
 reply = chat.complete(model="gpt-5.1", messages=[
     {"role": "user", "content": "In one sentence: what is a role assignment?"}
@@ -1192,17 +1192,17 @@ chat = ChatCompletionsClient(
           <span class="code-block__label">1 · create the service and grant yourself access</span>
           <pre><code># a Search service in the same resource group and region
 az search service create \
-  --name srch-libra-&lt;yourname&gt; \
+  --name srch-moch-&lt;yourname&gt; \
   --resource-group rg-ai-course \
   --location swedencentral \
   --sku basic
 
 # its endpoint
-az search service show --name srch-libra-&lt;yourname&gt; \
+az search service show --name srch-moch-&lt;yourname&gt; \
   --resource-group rg-ai-course --query "hostName" -o tsv
 
 # your identity needs data-plane roles — note these are Search's own roles
-SEARCH_ID=$(az search service show --name srch-libra-&lt;yourname&gt; \
+SEARCH_ID=$(az search service show --name srch-moch-&lt;yourname&gt; \
   --resource-group rg-ai-course --query id -o tsv)
 ME=$(az ad signed-in-user show --query id -o tsv)
 
@@ -1223,11 +1223,11 @@ from azure.search.documents.indexes.models import (
     VectorSearch, VectorSearchProfile, HnswAlgorithmConfiguration,
 )
 
-ENDPOINT = "https://srch-libra-&lt;yourname&gt;.search.windows.net"
+ENDPOINT = "https://srch-moch-&lt;yourname&gt;.search.windows.net"
 credential = DefaultAzureCredential()          # the SAME object as everywhere else
 
 index = SearchIndex(
-    name="libra-docs",
+    name="moch-docs",
     fields=[
         SimpleField(name="id", type=SearchFieldDataType.String, key=True),
         SearchableField(name="text", type=SearchFieldDataType.String),      # BM25 searches this
@@ -1250,7 +1250,7 @@ SearchIndexClient(ENDPOINT, credential).create_or_update_index(index)</code></pr
           <span class="code-block__label">3 · upload the same chunks you already produce</span>
           <pre><code>from azure.search.documents import SearchClient
 
-client = SearchClient(ENDPOINT, index_name="libra-docs", credential=credential)
+client = SearchClient(ENDPOINT, index_name="moch-docs", credential=credential)
 
 # chunks + vectors come from exactly the code you already have in app/chunking.py
 # and app/embeddings.py — only the destination changes.
@@ -1348,7 +1348,7 @@ for r in results:
         <div class="code-block">
           <span class="code-block__label">terminal</span>
           <pre><code>az cognitiveservices account create \
-  --name speech-libra-&lt;yourname&gt; \
+  --name speech-moch-&lt;yourname&gt; \
   --resource-group rg-ai-course \
   --location swedencentral \
   --kind SpeechServices \
@@ -1356,7 +1356,7 @@ for r in results:
   --yes
 
 # the key and the region are what the API needs
-az cognitiveservices account keys list --name speech-libra-&lt;yourname&gt; \
+az cognitiveservices account keys list --name speech-moch-&lt;yourname&gt; \
   --resource-group rg-ai-course --query key1 -o tsv</code></pre>
         </div>
         <p class="prose">The <strong>F0</strong> tier is free and generous enough for a course:
@@ -1409,7 +1409,7 @@ audio_bytes = response.content        # a complete WAV file</code></pre>
           <span class="code-block__label">the request, in curl</span>
           <pre><code>curl -X POST "http://localhost:7799/tools/transcribe" \
   -H "accept: application/json" \
-  -F "file=@libra-assist.wav;type=audio/wav"</code></pre>
+  -F "file=@moch-assist.wav;type=audio/wav"</code></pre>
         </div>
         <p class="prose">The short-audio REST endpoint we use handles clips up to about a minute,
           which suits demos and voice commands. Longer material — a thirty-minute call recording —
@@ -1538,9 +1538,9 @@ audio_bytes = response.content        # a complete WAV file</code></pre>
         <div class="code-block">
           <span class="code-block__label">app/agents/personas/lyrical.json</span>
           <pre><code>{
-  "display_name": "Libra Lyrical",
+  "display_name": "Moch Lyrical",
   "description": "The same facts, delivered as verse.",
-  "instructions": "You are Libra Lyrical, a banking assistant who answers exclusively in poetry. Every fact you state must remain strictly accurate — you may bend the language, never the numbers.",
+  "instructions": "You are Moch Lyrical, a banking assistant who answers exclusively in poetry. Every fact you state must remain strictly accurate — you may bend the language, never the numbers.",
   "style_rules": [
     "Answer as a short poem: four to eight lines, rhyming where it does not distort a fact.",
     "Keep every figure, fee, rate and condition exactly as found in the source material.",
@@ -1714,7 +1714,7 @@ uv run python scripts/deploy_agent.py lyrical</code></pre>
         </div>
         <div class="code-block">
           <span class="code-block__label">expected output</span>
-          <pre><code>→ deploying persona 'lyrical' (Libra Lyrical)
+          <pre><code>→ deploying persona 'lyrical' (Moch Lyrical)
   project : https://my-foundry-lb.services.ai.azure.com/api/projects/proj-default
   model   : gpt-5.1
 
@@ -1742,7 +1742,7 @@ Next:
         <div class="code-block">
           <span class="code-block__label">POST /ask</span>
           <pre><code>{
-  "question": "What fee does Libra Bank charge for early mortgage repayment?",
+  "question": "What fee does Moch Bank charge for early mortgage repayment?",
   "use_rag": true,
   "agent": "lyrical",
   "agent_mode": "foundry"
@@ -1842,7 +1842,7 @@ $r.usage
 irm http://localhost:7799/agents/lyrical/deploy -Method Post
 
 # an az command that was written multi-line — just put it on one line
-az cognitiveservices account deployment list --name libra-ai-acad-resource --resource-group libra-ai-acad --query "[].{deployment:name, model:properties.model.name}" -o table</code></pre>
+az cognitiveservices account deployment list --name moch-ai-acad-resource --resource-group moch-ai-acad --query "[].{deployment:name, model:properties.model.name}" -o table</code></pre>
         </div>
         <div class="callout callout--tip">
           <p class="callout__title">Or avoid the terminal entirely</p>
@@ -2304,7 +2304,7 @@ curl -X DELETE http://localhost:7799/agents/hosted/asst_9xK2…
         </div>
         <div class="code-block">
           <span class="code-block__label">typical output</span>
-          <pre><code>CURRENT DEPLOYMENTS in libra-ai-acad-resource
+          <pre><code>CURRENT DEPLOYMENTS in moch-ai-acad-resource
 Deployment              Model                   Sku             Tpm    State
 ----------------------  ----------------------  --------------  -----  ---------
 text-embedding-3-small  text-embedding-3-small  GlobalStandard  50     Succeeded
@@ -2352,7 +2352,7 @@ text-embedding-3-small  1                  950</code></pre>
         <div class="code-block">
           <span class="code-block__label">what it prints</span>
           <pre><code>Agent to create
-  persona : lyrical (Libra Lyrical)
+  persona : lyrical (Moch Lyrical)
   model   : gpt-5-mini
   project : https://&lt;resource&gt;.services.ai.azure.com/api/projects/proj-default
 
@@ -2502,7 +2502,7 @@ npm run dev                      # http://localhost:7800 — proxies to :7799</c
           <pre><code>RES=$(az cognitiveservices account show --name &lt;resource&gt; \
       --resource-group &lt;rg&gt; --query id -o tsv)
 
-az ad sp create-for-rbac --name sp-libra-console \
+az ad sp create-for-rbac --name sp-moch-console \
   --role "Azure AI User" --scopes "$RES"
 
 # paste what it prints into code/backend/.env:
@@ -2939,7 +2939,7 @@ az group delete --name rg-ai-course
     <button class="btn" data-nav="theme" title="Toggle theme" aria-label="Toggle theme">◐</button>
   </nav>
   <footer class="site-footer">
-    Session 4 · Azure Foundry in Practice — AI Engineering on Azure · Libra Bank Academy
+    Session 4 · Azure Foundry in Practice — AI Engineering on Azure · Moch Bank Academy
   </footer>
 
   <script src="../../resources/nav.js"></script>

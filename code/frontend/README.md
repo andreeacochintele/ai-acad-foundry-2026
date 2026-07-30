@@ -1,4 +1,4 @@
-# Libra Assist console
+# Moch Assist console
 
 A small React console over the backend API. Swagger (`/docs`) stays the right tool for
 debugging; this is the right tool for *showing* — one purpose-built screen per part of

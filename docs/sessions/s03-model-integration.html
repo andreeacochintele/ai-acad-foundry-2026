@@ -45,12 +45,12 @@
             streaming — and the discipline around it: handling the failures a network guarantees,
             and choosing models on the quality–latency–cost triangle. Then the promised moment:
             a one-page specification, an AI coding agent, and the skeleton of
-            <strong>Libra&nbsp;Assist</strong> — a Python API with a web chat interface — built in
+            <strong>Moch&nbsp;Assist</strong> — a Python API with a web chat interface — built in
             front of you and then running on your machine.</p>
           <div style="margin-top:1.2rem; display:flex; gap:.6rem; flex-wrap:wrap;">
             <span class="badge badge--cyan">Fri 24 Jul · 09:30–12:00 · online</span>
             <span class="badge badge--gold">Laptop required — hands-on session</span>
-            <span class="badge badge--navy">Libra Assist runs locally today</span>
+            <span class="badge badge--navy">Moch Assist runs locally today</span>
           </div>
         </header>
       </section>
@@ -73,7 +73,7 @@
               <tr><td>10:30</td><td>Choosing a model: quality · latency · cost</td><td>15</td><td><span class="badge badge--navy">Theory</span></td></tr>
               <tr><td>10:45</td><td>Break</td><td>10</td><td>—</td></tr>
               <tr><td>10:55</td><td>The app skeleton, built spec-first with an AI coding agent</td><td>30</td><td><span class="badge badge--cyan">Walkthrough</span></td></tr>
-              <tr><td>11:25</td><td><strong>Lab: run Libra Assist locally — API + web chat</strong></td><td>30</td><td><span class="badge badge--gold">Lab</span></td></tr>
+              <tr><td>11:25</td><td><strong>Lab: run Moch Assist locally — API + web chat</strong></td><td>30</td><td><span class="badge badge--gold">Lab</span></td></tr>
               <tr><td>11:55</td><td>Questions &amp; a preview of Session 4</td><td>5</td><td><span class="badge badge--coral">Q&amp;A</span></td></tr>
             </tbody>
           </table>
@@ -133,7 +133,7 @@
               it lands on.</p>
           </article>
           <article class="card card--accent hover">
-            <h3>Run Libra Assist locally</h3>
+            <h3>Run Moch Assist locally</h3>
             <p>Clone, configure and run the starter application — and explain what each file does
               and where yesterday's client lives inside it.</p>
           </article>
@@ -149,7 +149,7 @@
         <p class="prose">Inventory after two sessions: a governed model deployment
           (<code>gpt-5.1</code>) and an embedding deployment behind your project's endpoint; a
           working keyless toolchain on every laptop (<code>az login</code> →
-          <code>DefaultAzureCredential</code>); a script that speaks as Libra Assist; and the habit
+          <code>DefaultAzureCredential</code>); a script that speaks as Moch Assist; and the habit
           of reading the token meter. Anyone whose lab stalled yesterday: this first block is the
           unblocking window — flag it now.</p>
         <p class="prose">Today's arc is one sentence: <em>a call is not an application</em>. A
@@ -211,7 +211,7 @@
           <div class="dg-box dg-box--frame">
             <span class="dg-label">messages = [ … ]  ·  what one multi-turn call actually sends</span>
             <div class="dg-stack">
-              <div class="dg-box">system · "You are Libra Assist…"<br><span class="dg-note">sent every single turn</span></div>
+              <div class="dg-box">system · "You are Moch Assist…"<br><span class="dg-note">sent every single turn</span></div>
               <div class="dg-box">user · "A customer's card is blocked…"<br><span class="dg-note">turn 1</span></div>
               <div class="dg-box">assistant · "First, verify identity…"<br><span class="dg-note">the model's own turn 1 answer, echoed back</span></div>
               <div class="dg-box dg-box--accent">user · "And if verification fails?"<br><span class="dg-note">the new turn</span></div>
@@ -358,7 +358,7 @@ def complete_with_retry(client, attempts=5, **kwargs):
               <tr><th>Model class</th><th>Trade</th><th>Reach for it when</th></tr>
             </thead>
             <tbody>
-              <tr><td><strong>Flagship chat</strong> (our <code>gpt-5.1</code>)</td><td>High quality, moderate latency &amp; cost</td><td>Customer-facing language, complex instructions — Libra Assist's voice</td></tr>
+              <tr><td><strong>Flagship chat</strong> (our <code>gpt-5.1</code>)</td><td>High quality, moderate latency &amp; cost</td><td>Customer-facing language, complex instructions — Moch Assist's voice</td></tr>
               <tr><td><strong>Small / mini models</strong></td><td>Fraction of the cost &amp; latency, lower ceiling</td><td>Classification, routing, extraction at volume — most calls in mature systems</td></tr>
               <tr><td><strong>Reasoning models</strong></td><td>Deliberate longer for hard problems — slow, costly</td><td>Multi-step analysis where wrong is expensive; never for chit-chat</td></tr>
               <tr><td><strong>Embedding models</strong></td><td>No generation at all; cents at scale</td><td>Search and retrieval — Session 5's engine</td></tr>
@@ -382,8 +382,8 @@ def complete_with_retry(client, attempts=5, **kwargs):
           chat talking to our deployment" — and instead of typing it, I wrote it down. This is the
           entire specification; read it as a contract:</p>
         <div class="code-block">
-          <span class="code-block__label">SPEC.md · Libra Assist skeleton, v0</span>
-          <pre><code># Libra Assist — starter skeleton (v0)
+          <span class="code-block__label">SPEC.md · Moch Assist skeleton, v0</span>
+          <pre><code># Moch Assist — starter skeleton (v0)
 
 Goal      : a local web chat talking to our Foundry deployment.
 
@@ -394,7 +394,7 @@ Frontend  : ONE html file, no framework — input box, message list,
             token counter under every answer
 Model     : gpt-5.1 via azure-ai-inference, keyless (DefaultAzureCredential)
 Config    : endpoint from env var AZURE_AI_ENDPOINT — never hardcoded
-Behaviour : system prompt = Libra Assist banking persona; history sent
+Behaviour : system prompt = Moch Assist banking persona; history sent
             each turn (the API stays stateless); errors surface as
             readable messages, 429 retried with backoff
 Non-goals : no database, no retrieval, no login, no deployment
@@ -408,7 +408,7 @@ Non-goals : no database, no retrieval, no login, no deployment
           repository you clone in the lab:</p>
         <div class="code-block">
           <span class="code-block__label">repository layout</span>
-          <pre><code>libra-assist/
+          <pre><code>moch-assist/
 ├── app/
 │   ├── main.py          # FastAPI app: POST /chat + serves the static page
 │   └── llm.py           # yesterday's client, wrapped: retry, usage, persona
@@ -436,14 +436,14 @@ Non-goals : no database, no retrieval, no login, no deployment
       <section id="lab" class="doc-section">
         <div>
           <span class="eyebrow">11:25 · Lab · 30′</span>
-          <h2>Lab — Libra Assist on <span class="gradient-text">your machine</span></h2>
+          <h2>Lab — Moch Assist on <span class="gradient-text">your machine</span></h2>
         </div>
         <p class="prose">Clone it, run it, own it. The repository URL is in the session chat.</p>
         <h3>Step 1 — clone and install (≈7′)</h3>
         <div class="code-block">
           <span class="code-block__label">terminal</span>
           <pre><code>git clone &lt;starter-repo-url&gt;          # from the session chat
-cd libra-assist
+cd moch-assist
 python -m venv .venv
 .venv\Scripts\activate               # Windows   (macOS/Linux: source .venv/bin/activate)
 pip install -r requirements.txt</code></pre>
@@ -519,7 +519,7 @@ uvicorn app.main:app --reload</code></pre>
           roles, history, parameters — and you know the model remembers nothing unless your code
           re-sends it. You can demand structured JSON and get it by schema, not by luck; you treat
           429 as weather, not catastrophe; and you place workloads on the quality–latency–cost
-          triangle like someone who will be asked to defend the bill. Above all: Libra Assist is no
+          triangle like someone who will be asked to defend the bill. Above all: Moch Assist is no
           longer a script. It is an application with a spec, a repository, an API and a face —
           built by an AI agent under review, running on your machine. On Monday we stop admiring
           its answers and start measuring them.</p>
@@ -558,7 +558,7 @@ uvicorn app.main:app --reload</code></pre>
           <p class="card__meta">Official documentation</p>
           <ul style="margin:0; padding-left:1.2rem;">
             <li><a href="https://learn.microsoft.com/python/api/overview/azure/ai-inference-readme" target="_blank" rel="noopener">azure-ai-inference for Python</a> — chat, streaming, structured output, embeddings.</li>
-            <li><a href="https://fastapi.tiangolo.com/" target="_blank" rel="noopener">FastAPI documentation</a> — the framework carrying Libra Assist from today on.</li>
+            <li><a href="https://fastapi.tiangolo.com/" target="_blank" rel="noopener">FastAPI documentation</a> — the framework carrying Moch Assist from today on.</li>
             <li><a href="https://www.uvicorn.org/" target="_blank" rel="noopener">Uvicorn</a> — the server behind <code>--reload</code>.</li>
             <li><a href="https://learn.microsoft.com/azure/ai-foundry/" target="_blank" rel="noopener">Microsoft Foundry documentation</a> — the platform reference.</li>
           </ul>
@@ -578,10 +578,10 @@ uvicorn app.main:app --reload</code></pre>
         </div>
         <div class="card">
           <ol style="margin:0; padding-left:1.2rem;">
-            <li>Make sure Libra Assist still runs on your machine (30 seconds — start it, ask one
+            <li>Make sure Moch Assist still runs on your machine (30 seconds — start it, ask one
               question).</li>
             <li>Write down <strong>five realistic questions</strong> a bank customer or a colleague
-              would ask Libra Assist — real phrasing, not textbook phrasing.</li>
+              would ask Moch Assist — real phrasing, not textbook phrasing.</li>
             <li>For <strong>two</strong> of them, also write the answer you would consider
               <em>correct and complete</em> — two or three sentences each.</li>
             <li>Ask your running assistant all five, and note — honestly — which answers you would
@@ -606,7 +606,7 @@ uvicorn app.main:app --reload</code></pre>
     <button class="btn" data-nav="theme" title="Toggle theme" aria-label="Toggle theme">◐</button>
   </nav>
   <footer class="site-footer">
-    Session 3 · Model Integration &amp; Inference — AI Engineering on Azure · Libra Bank Academy
+    Session 3 · Model Integration &amp; Inference — AI Engineering on Azure · Moch Bank Academy
   </footer>
 
   <script src="../../resources/nav.js"></script>

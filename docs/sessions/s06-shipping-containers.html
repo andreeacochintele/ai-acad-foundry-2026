@@ -590,11 +590,11 @@ CMD ["uv", "run", "--no-sync", "uvicorn", "app.main:app", "--host", "0.0.0.0", "
         </div>
         <div class="code-block">
           <span class="code-block__label">PowerShell — prove the secret is not in the image</span>
-          <pre><code>docker build -t libra-api:check code\backend
-docker run --rm libra-api:check ls -la /srv          # no .env should appear
+          <pre><code>docker build -t moch-api:check code\backend
+docker run --rm moch-api:check ls -la /srv          # no .env should appear
 
 # and search every layer, not just the final filesystem
-docker history --no-trunc libra-api:check | Select-String -Pattern "AZURE_|API_KEY"</code></pre>
+docker history --no-trunc moch-api:check | Select-String -Pattern "AZURE_|API_KEY"</code></pre>
         </div>
       </section>
 
@@ -667,10 +667,10 @@ docker history --no-trunc libra-api:check | Select-String -Pattern "AZURE_|API_K
         <h3>1 · Build them</h3>
         <div class="code-block">
           <span class="code-block__label">PowerShell — from the repository root</span>
-          <pre><code>docker build -t libra-api:v1 code\backend
-docker build -t libra-console:v1 code\frontend        # prod is the default target
+          <pre><code>docker build -t moch-api:v1 code\backend
+docker build -t moch-console:v1 code\frontend        # prod is the default target
 
-docker images | Select-String "libra-"</code></pre>
+docker images | Select-String "moch-"</code></pre>
         </div>
         <p class="prose">Note the sizes. The console should be around 74 MB — roughly a fifth of the
           development image, because Node, the compiler and <code>node_modules</code> stayed in the
@@ -689,7 +689,7 @@ docker images | Select-String "libra-"</code></pre>
   -e AZURE_AI_ENDPOINT=https://&lt;your-resource&gt;.services.ai.azure.com/models `
   -e AZURE_AI_CHAT_DEPLOYMENT=gpt-5-mini `
   -e AZURE_AI_EMBEDDING_DEPLOYMENT=text-embedding-3-small `
-  libra-api:v1
+  moch-api:v1
 
 irm http://localhost:7899/health | ConvertTo-Json -Depth 4</code></pre>
         </div>
@@ -705,7 +705,7 @@ irm http://localhost:7899/health | ConvertTo-Json -Depth 4</code></pre>
           <pre><code>docker run --rm -d --name console-test -p 7801:7800 `
   -e API_URL=http://host.docker.internal:7899 `
   --add-host host.docker.internal:host-gateway `
-  libra-console:v1
+  moch-console:v1
 
 start http://localhost:7801</code></pre>
         </div>
@@ -868,14 +868,14 @@ start http://localhost:7801</code></pre>
           unique across all of Azure, lowercase, letters and digits only.</p>
         <div class="code-block">
           <span class="code-block__label">PowerShell — edit the first four lines, run the block</span>
-          <pre><code>$Rg       = "libra-ai-acad"                 # your existing resource group
+          <pre><code>$Rg       = "moch-ai-acad"                 # your existing resource group
 $Location = "swedencentral"                 # the region your Foundry resource is in
 $Acr      = "acrlibra&lt;yourname&gt;"            # globally unique, lowercase, a-z0-9 only
-$Foundry  = "libra-ai-acad-resource"        # your Foundry (AI Services) resource
+$Foundry  = "moch-ai-acad-resource"        # your Foundry (AI Services) resource
 
-$Env      = "cae-libra-acad"                # the Container Apps environment
-$ApiApp   = "ca-libra-api"
-$WebApp   = "ca-libra-console"
+$Env      = "cae-moch-acad"                # the Container Apps environment
+$ApiApp   = "ca-moch-api"
+$WebApp   = "ca-moch-console"
 
 # sanity: are you where you think you are?
 az account show --query "{user:user.name, subscription:name}" -o yaml</code></pre>
@@ -961,20 +961,20 @@ az acr show --name $Acr --query "{name:name, server:loginServer, sku:sku.name}" 
           machine that will run it.</p>
         <div class="code-block">
           <span class="code-block__label">PowerShell — from the repository root</span>
-          <pre><code>az acr build --registry $Acr --image libra-api:v1 code\backend
+          <pre><code>az acr build --registry $Acr --image moch-api:v1 code\backend
 
 # the console's Dockerfile has two targets; `prod` is the default, so nothing extra to pass
-az acr build --registry $Acr --image libra-console:v1 code\frontend
+az acr build --registry $Acr --image moch-console:v1 code\frontend
 
 az acr repository list --name $Acr -o table
-az acr repository show-tags --name $Acr --repository libra-api -o table</code></pre>
+az acr repository show-tags --name $Acr --repository moch-api -o table</code></pre>
         </div>
         <div class="callout callout--info">
           <p class="callout__title">The local alternative, for completeness</p>
           <p>If you do have Docker and prefer to build locally, it is three steps:
             <code>az acr login --name $Acr</code>, then
-            <code>docker build -t "$Acr.azurecr.io/libra-api:v1" code\backend</code>, then
-            <code>docker push "$Acr.azurecr.io/libra-api:v1"</code>. On an ARM Mac add
+            <code>docker build -t "$Acr.azurecr.io/moch-api:v1" code\backend</code>, then
+            <code>docker push "$Acr.azurecr.io/moch-api:v1"</code>. On an ARM Mac add
             <code>--platform linux/amd64</code> to the build, or the image will not start in
             Azure — a failure that reads like a crash and is actually an architecture mismatch.</p>
         </div>
@@ -1042,7 +1042,7 @@ az containerapp registry set --name $ApiApp --resource-group $Rg --server "$Acr.
         <h3>8 · Deploy the image you actually built</h3>
         <div class="code-block">
           <span class="code-block__label">PowerShell</span>
-          <pre><code>az containerapp update --name $ApiApp --resource-group $Rg --image "$Acr.azurecr.io/libra-api:v1"
+          <pre><code>az containerapp update --name $ApiApp --resource-group $Rg --image "$Acr.azurecr.io/moch-api:v1"
 
 $apiFqdn = az containerapp show --name $ApiApp --resource-group $Rg --query properties.configuration.ingress.fqdn -o tsv
 "https://$apiFqdn"</code></pre>
@@ -1066,7 +1066,7 @@ az role assignment create --assignee $principalId --role "Cognitive Services Use
 az role assignment create --assignee $principalId --role "Azure AI User" --scope $foundryId
 
 # Azure AI Search, if you moved the vector store there
-$searchId = az search service show --name srch-libra-acad --resource-group $Rg --query id -o tsv
+$searchId = az search service show --name srch-moch-acad --resource-group $Rg --query id -o tsv
 az role assignment create --assignee $principalId --role "Search Index Data Contributor" --scope $searchId
 
 # read back exactly what this identity can do — worth doing every single time
@@ -1081,7 +1081,7 @@ az role assignment list --assignee $principalId --all --query "[].{role:roleDefi
         <div class="code-block">
           <span class="code-block__label">PowerShell — secrets first</span>
           <pre><code># only if you still need one. With managed identity, most of these disappear entirely.
-$searchKey = az search admin-key show --service-name srch-libra-acad --resource-group $Rg --query primaryKey -o tsv
+$searchKey = az search admin-key show --service-name srch-moch-acad --resource-group $Rg --query primaryKey -o tsv
 
 az containerapp secret set --name $ApiApp --resource-group $Rg --secrets "search-key=$searchKey"</code></pre>
         </div>
@@ -1096,8 +1096,8 @@ az containerapp secret set --name $ApiApp --resource-group $Rg --secrets "search
     "AZURE_AI_CHAT_DEPLOYMENT=gpt-5-mini" `
     "AZURE_AI_EMBEDDING_DEPLOYMENT=text-embedding-3-small" `
     "AZURE_AI_PROJECT_ENDPOINT=https://$Foundry.services.ai.azure.com/api/projects/&lt;your-project&gt;" `
-    "AZURE_SEARCH_ENDPOINT=https://srch-libra-acad.search.windows.net" `
-    "AZURE_SEARCH_INDEX=libra-docs" `
+    "AZURE_SEARCH_ENDPOINT=https://srch-moch-acad.search.windows.net" `
+    "AZURE_SEARCH_INDEX=moch-docs" `
     "AZURE_SEARCH_KEY=secretref:search-key" `
     "AGENT_PERSONA=teller"</code></pre>
         </div>
@@ -1135,7 +1135,7 @@ $r.answer</code></pre>
           <span class="code-block__label">PowerShell</span>
           <pre><code>az containerapp create `
   --name $WebApp --resource-group $Rg --environment $Env `
-  --image "$Acr.azurecr.io/libra-console:v1" `
+  --image "$Acr.azurecr.io/moch-console:v1" `
   --target-port 7800 --ingress external `
   --system-assigned --registry-server "$Acr.azurecr.io" --registry-identity system `
   --env-vars "API_URL=https://$apiFqdn" `
@@ -1230,16 +1230,16 @@ az group delete --name $Rg --yes --no-wait</code></pre>
 
         <div class="code-block">
           <span class="code-block__label">PowerShell — Key Vault, when a secret outgrows one app</span>
-          <pre><code>az keyvault create --name kv-libra-acad --resource-group $Rg --location $Location --enable-rbac-authorization true
-az keyvault secret set --vault-name kv-libra-acad --name search-key --value $searchKey
+          <pre><code>az keyvault create --name kv-moch-acad --resource-group $Rg --location $Location --enable-rbac-authorization true
+az keyvault secret set --vault-name kv-moch-acad --name search-key --value $searchKey
 
 # let the app's identity read it — a role, not a password
-$kvId = az keyvault show --name kv-libra-acad --query id -o tsv
+$kvId = az keyvault show --name kv-moch-acad --query id -o tsv
 az role assignment create --assignee $principalId --role "Key Vault Secrets User" --scope $kvId
 
 # the app resolves the reference itself, at start, as itself
 az containerapp secret set --name $ApiApp --resource-group $Rg `
-  --secrets "search-key=keyvaultref:https://kv-libra-acad.vault.azure.net/secrets/search-key,identityref:system"</code></pre>
+  --secrets "search-key=keyvaultref:https://kv-moch-acad.vault.azure.net/secrets/search-key,identityref:system"</code></pre>
         </div>
         <p class="prose">Follow the chain in that last command: the app authenticates to Key Vault
           with its managed identity, reads the secret at start, and exposes it to the process as an
@@ -1309,8 +1309,8 @@ az containerapp replica list --name $ApiApp --resource-group $Rg -o table</code>
 az containerapp revision list --name $ApiApp --resource-group $Rg -o table
 
 # ship v2 beside v1 and send it a tenth of the traffic
-az acr build --registry $Acr --image libra-api:v2 code\backend
-az containerapp update --name $ApiApp --resource-group $Rg --image "$Acr.azurecr.io/libra-api:v2"
+az acr build --registry $Acr --image moch-api:v2 code\backend
+az containerapp update --name $ApiApp --resource-group $Rg --image "$Acr.azurecr.io/moch-api:v2"
 
 az containerapp ingress traffic set --name $ApiApp --resource-group $Rg `
   --revision-weight &lt;old-revision-name&gt;=90 &lt;new-revision-name&gt;=10
@@ -1337,8 +1337,8 @@ az containerapp ingress traffic set --name $ApiApp --resource-group $Rg --revisi
         <div class="code-block">
           <span class="code-block__label">PowerShell</span>
           <pre><code>$sha = git rev-parse --short HEAD
-az acr build --registry $Acr --image "libra-api:$sha" code\backend
-az containerapp update --name $ApiApp --resource-group $Rg --image "$Acr.azurecr.io/libra-api:$sha"</code></pre>
+az acr build --registry $Acr --image "moch-api:$sha" code\backend
+az containerapp update --name $ApiApp --resource-group $Rg --image "$Acr.azurecr.io/moch-api:$sha"</code></pre>
         </div>
       </section>
 
@@ -1408,9 +1408,9 @@ start "https://portal.azure.com/#view/Microsoft_Azure_CostManagement/Menu/~/cost
         <div class="code-block">
           <span class="code-block__label">code/backend/scripts/azure/08-deploy-containerapp.ps1 — the shape</span>
           <pre><code>param(
-    [string]$ResourceGroup = "libra-ai-acad",
+    [string]$ResourceGroup = "moch-ai-acad",
     [string]$Registry      = "acrlibraacad",
-    [string]$Environment   = "cae-libra-acad",
+    [string]$Environment   = "cae-moch-acad",
     [string]$Tag           = "v1"
 )
 $ErrorActionPreference = "Stop"
@@ -1457,8 +1457,8 @@ steps:
       client-id:       ${{ secrets.AZURE_CLIENT_ID }}
       tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
       subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-  - run: az acr build --registry $ACR --image libra-api:${{ github.sha }} code/backend
-  - run: az containerapp update --name $APP --resource-group $RG --image $ACR.azurecr.io/libra-api:${{ github.sha }}</code></pre>
+  - run: az acr build --registry $ACR --image moch-api:${{ github.sha }} code/backend
+  - run: az containerapp update --name $APP --resource-group $RG --image $ACR.azurecr.io/moch-api:${{ github.sha }}</code></pre>
         </div>
         <p class="prose">Three identifiers, no password, and an image tagged with the commit that
           produced it. Notice that the last two lines are commands you already ran by hand today —
@@ -1728,7 +1728,7 @@ steps:
     <button class="btn" data-nav="theme" title="Toggle theme" aria-label="Toggle theme">&#9689;</button>
   </nav>
   <footer class="site-footer">
-    Session 6 &middot; Shipping the container &mdash; AI Engineering on Azure &middot; Libra Bank Academy
+    Session 6 &middot; Shipping the container &mdash; AI Engineering on Azure &middot; Moch Bank Academy
   </footer>
 
   <script src="../../resources/nav.js"></script>

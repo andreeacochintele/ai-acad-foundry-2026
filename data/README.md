@@ -1,4 +1,4 @@
-# Corpus — Libra Bank Mortgages (fictional)
+# Corpus — Moch Bank Mortgages (fictional)
 
 This is a fabricated knowledge base about a fictional retail bank's mortgage
 products. Every fact, number, date, and policy here is invented for this
@@ -51,7 +51,7 @@ insurance, hardship, and a first-time buyer program).
 | **A long procedure with steps** | `06-application-process-steps.md` | Nine sequential, numbered steps; naive chunking is likely to cut the list mid-sequence and separate a step from its number |
 | **A table** | `08-loan-to-value-rate-table.md` | A Markdown table with 4 rows and 4 columns; plain-text chunking can flatten it into unreadable rows |
 | **Contradiction across versions** | `04-early-repayment-fees-2025.md` vs `05-early-repayment-fees-2026.md` | The same pair also serves this case: the fee genuinely changed on 2026-01-15, and the 2025 document says so explicitly ("superseded") — the assistant must prefer the current version by date, not just by similarity score |
-| **Something deliberately absent** | *(no document)* | Student loans are never mentioned anywhere in this corpus, on purpose. Libra Bank (fictional) does not offer them, and the assistant must say so rather than inventing a rate |
+| **Something deliberately absent** | *(no document)* | Student loans are never mentioned anywhere in this corpus, on purpose. Moch Bank (fictional) does not offer them, and the assistant must say so rather than inventing a rate |
 
 All 7 cases are covered (the assignment requires at least 5).
 
