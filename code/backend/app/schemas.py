@@ -454,6 +454,7 @@ class SessionSave(BaseModel):
     mode: str = "local"
     messages: list[ChatMessage] = Field(default_factory=list)
     created_at: Optional[float] = Field(None, description="epoch ms — set on first save, kept after")
+    owner: str = Field("", description="login identity (name+role) this conversation belongs to")
 
 
 # --- ops ----------------------------------------------------------------------

@@ -5,11 +5,21 @@ import { useLanguage } from '../i18n.jsx'
 
 // The wire shape is snake_case (matching the rest of the API, e.g. use_rag on
 // /ask) — these two functions are the only place that boundary is crossed.
-function toWire(c) {
+function toWire(c, ownerKey) {
   return {
     id: c.id, title: c.title, agent: c.agent, use_rag: c.useRag, mode: c.mode,
-    messages: c.messages, created_at: c.createdAt,
+    messages: c.messages, created_at: c.createdAt, owner: ownerKey,
   }
+}
+
+// A "user" login and an "admin" login (or two different names) each get their
+// own bucket, both in the backend's /sessions list and in the localStorage
+// mirror — otherwise one login's history shows up in the other's sidebar,
+// whether that's two people sharing a deployed backend or one person
+// switching roles in the same browser.
+function ownerKeyFor(session) {
+  if (!session?.name) return ''
+  return `${session.name.trim().toLowerCase()}::${session.role || 'user'}`
 }
 const DEFAULT_AGENT = 'andreea-cochintele-credit-specialist'
 
@@ -37,12 +47,15 @@ function makeConversation(overrides = {}) {
 
 // Mirrors conversations into localStorage on every change, synchronously, with no
 // network involved — so what you just typed survives a refresh or a flaky backend
-// even before (or if) the /sessions POST round-trip lands.
-const LOCAL_KEY = 'libra-chat-local-sessions'
+// even before (or if) the /sessions POST round-trip lands. Keyed per owner (see
+// ownerKeyFor) so a user login and an admin login don't share a local cache either.
+function localKey(ownerKey) {
+  return `libra-chat-local-sessions:${ownerKey}`
+}
 
-function loadLocal() {
+function loadLocal(ownerKey) {
   try {
-    const parsed = JSON.parse(localStorage.getItem(LOCAL_KEY))
+    const parsed = JSON.parse(localStorage.getItem(localKey(ownerKey)))
     if (Array.isArray(parsed?.conversations) && parsed.conversations.length) return parsed
   } catch { /* unavailable or corrupted — start fresh */ }
   return null
@@ -56,10 +69,11 @@ function groupLabel(ts, t) {
   return t('chat.group.older')
 }
 
-export default function Chat({ agents, hostedOnly = [], foundry, clientMode = false }) {
+export default function Chat({ agents, hostedOnly = [], foundry, clientMode = false, session = null }) {
   const { t } = useLanguage()
-  const [conversations, setConversations] = useState(() => loadLocal()?.conversations || [makeConversation()])
-  const [activeId, setActiveId] = useState(() => loadLocal()?.activeId || conversations[0].id)
+  const ownerKey = ownerKeyFor(session)
+  const [conversations, setConversations] = useState(() => loadLocal(ownerKey)?.conversations || [makeConversation()])
+  const [activeId, setActiveId] = useState(() => loadLocal(ownerKey)?.activeId || conversations[0].id)
   const [question, setQuestion] = useState('')
   const [factCheck, setFactCheck] = useState(false)
   const [topK, setTopK] = useState(3)
@@ -242,7 +256,7 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
   }
 
   useEffect(() => {
-    api.sessions.list().then((list) => {
+    api.sessions.list(ownerKey).then((list) => {
       const backendIds = new Set(list.map((s) => s.id))
       let activeAfter = null
       setConversations((current) => {
@@ -250,7 +264,7 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
         // happened to be mid-restart, for instance — gets a second chance here instead
         // of silently vanishing once the backend list becomes the source of truth.
         const orphaned = current.filter((c) => c.messages.length && !backendIds.has(c.id))
-        orphaned.forEach((c) => { api.sessions.save(toWire(c)).catch(() => {}) })
+        orphaned.forEach((c) => { api.sessions.save(toWire(c, ownerKey)).catch(() => {}) })
         if (!list.length) return current
         const merged = [...orphaned, ...list.map(fromWire)]
         activeAfter = [...merged].sort((a, b) => b.updatedAt - a.updatedAt)[0].id
@@ -258,11 +272,11 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
       })
       if (activeAfter) setActiveId(activeAfter)
     }).catch(() => { /* backend unreachable — keep working from localStorage */ })
-  }, [])
+  }, [ownerKey])
 
   useEffect(() => {
-    try { localStorage.setItem(LOCAL_KEY, JSON.stringify({ conversations, activeId })) } catch { /* storage full/unavailable — the backend save still applies */ }
-  }, [conversations, activeId])
+    try { localStorage.setItem(localKey(ownerKey), JSON.stringify({ conversations, activeId })) } catch { /* storage full/unavailable — the backend save still applies */ }
+  }, [conversations, activeId, ownerKey])
 
   const activeConv = conversations.find((c) => c.id === activeId) || conversations[0]
   const { messages, agent, useRag, mode } = activeConv
@@ -276,7 +290,7 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
       merged = { ...c, ...(typeof patcher === 'function' ? patcher(c) : patcher), updatedAt: Date.now() }
       return merged
     }))
-    if (merged) api.sessions.save(toWire(merged)).catch((e) => setError(e.message))
+    if (merged) api.sessions.save(toWire(merged, ownerKey)).catch((e) => setError(e.message))
   }
 
   function setAgent(v) { patchConversation(activeId, { agent: v }) }
@@ -357,7 +371,7 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
   }
 
   function exportJson() {
-    downloadBlob(new Blob([JSON.stringify(toWire(activeConv), null, 2)], { type: 'application/json' }),
+    downloadBlob(new Blob([JSON.stringify(toWire(activeConv, ownerKey), null, 2)], { type: 'application/json' }),
                  `${slugTitle(activeConv)}.json`)
   }
 

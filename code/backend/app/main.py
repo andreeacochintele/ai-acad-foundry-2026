@@ -861,9 +861,12 @@ async def transcribe(file: UploadFile = File(..., description="WAV, 16 kHz mono,
 
 # --- sessions -------------------------------------------------------------
 @app.get("/sessions", tags=["8 · sessions"])
-def sessions_list() -> list[dict]:
-    """Every saved conversation, newest first — read straight off disk."""
-    return sessions_store.list_sessions()
+def sessions_list(owner: str | None = None) -> list[dict]:
+    """Every saved conversation, newest first — read straight off disk.
+
+    `owner` scopes the list to one login identity (see sessions.list_sessions).
+    """
+    return sessions_store.list_sessions(owner=owner)
 
 
 @app.get("/sessions/{id}", tags=["8 · sessions"])

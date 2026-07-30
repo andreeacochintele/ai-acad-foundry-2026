@@ -37,8 +37,17 @@ def _path(id: str) -> Path:
     return SESSIONS_DIR / f"{id}.json"
 
 
-def list_sessions() -> list[dict]:
+def list_sessions(owner: str | None = None) -> list[dict]:
+    """Every saved conversation, newest first.
+
+    `owner` (a login's name+role, set by the console on save) keeps a `user`
+    login and an `admin` login from seeing each other's conversation history
+    when they share this backend — pass it to see only that owner's sessions,
+    omit it for the old unscoped behaviour.
+    """
     sessions = [json.loads(p.read_text(encoding="utf-8")) for p in SESSIONS_DIR.glob("*.json")]
+    if owner is not None:
+        sessions = [s for s in sessions if s.get("owner", "") == owner]
     sessions.sort(key=lambda s: s.get("updated_at", 0), reverse=True)
     return sessions
 

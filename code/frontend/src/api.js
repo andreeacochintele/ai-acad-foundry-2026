@@ -42,7 +42,7 @@ export const api = {
   azure: () => request('/azure'),
 
   sessions: {
-    list: () => request('/sessions'),
+    list: (owner) => request(owner ? `/sessions?owner=${encodeURIComponent(owner)}` : '/sessions'),
     get: (id) => request(`/sessions/${encodeURIComponent(id)}`),
     save: (payload) => request('/sessions', { method: 'POST', body: payload }),
     remove: (id) => request(`/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' }),

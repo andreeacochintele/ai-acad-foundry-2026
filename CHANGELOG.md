@@ -143,6 +143,28 @@ Uncommitted — everything below is new working-tree state on top of `68ad027`.
   Speech switches pronunciation for just that span. No-op when the voice is
   already English.
 
+### Conversation history separated by login identity
+
+- Chat sessions were completely unscoped: `GET /sessions` returned every
+  conversation ever saved, so a `user` login and an `admin` login (or two
+  different names) sharing this backend saw each other's history in the
+  sidebar. New `owner` field on `SessionSave` (`schemas.py`) — a login's
+  name+role — and `sessions.list_sessions(owner=...)` (`sessions.py`) now
+  filters to just that owner when the caller passes one; `GET /sessions`
+  (`main.py`) exposes it as an `?owner=` query param. Omitting it keeps the
+  old unscoped behaviour.
+- `Chat.jsx`: new `ownerKeyFor(session)` builds the `name::role` key from the
+  login (now passed down from `App.jsx` as a `session` prop); `toWire`
+  stamps it on every save, the backend list call passes it as `?owner=`, and
+  the localStorage mirror is keyed per owner
+  (`libra-chat-local-sessions:<ownerKey>`) too — otherwise switching roles
+  in the same browser would still show the previous role's cached history
+  before the backend round-trip landed.
+- Verified directly against the API: saving a session under `owner:
+  "alice::user"` and another under `owner: "bob::admin"`, `GET
+  /sessions?owner=alice::user` returns only Alice's and `?owner=bob::admin`
+  only Bob's; the unscoped `GET /sessions` still returns both (back-compat).
+
 ### Full English + Romanian UI (i18n)
 
 - New `src/i18n.jsx`: a small hand-rolled dictionary + `LanguageProvider`/

@@ -250,7 +250,7 @@ export default function App() {
       </div>
 
       <main className="main">
-        {view === 'chat' && <Chat agents={agents} hostedOnly={hostedOnly} foundry={foundry} clientMode={effectiveIsClient} />}
+        {view === 'chat' && <Chat agents={agents} hostedOnly={hostedOnly} foundry={foundry} clientMode={effectiveIsClient} session={session} />}
         {view === 'calculator' && <Calculator />}
         {view === 'knowledge' && <Knowledge />}
         {view === 'search' && <Search />}
