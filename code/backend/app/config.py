@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     llm_temperature: float = 0.2
     llm_max_tokens: int = 2500   # reasoning models spend part of this budget thinking
 
+    # --- guardrails ------------------------------------------------------------
+    guardrails_enabled: bool = True   # app/guardrails — checks around every LLM call
+
     # --- provider selection --------------------------------------------------
     llm_provider: str = "openai"            # lmstudio | openai | anthropic | azure
     embedding_provider: str = "openai"      # lmstudio | openai | azure  (Anthropic has no embeddings API)

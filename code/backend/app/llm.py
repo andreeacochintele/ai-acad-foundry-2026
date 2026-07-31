@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 from .config import settings
+from .guardrails import check_input, check_output, check_request
 
 
 @dataclass
@@ -29,6 +30,9 @@ class LLM:
     def chat(self, system: str, user: str, temperature: float, max_tokens: int,
              extras: dict | None = None) -> ChatResult:
         extras = extras or {}
+        check_request(self.provider, self.model, temperature, max_tokens)
+        check_input(user)
+
         if self.provider in ("lmstudio", "openai"):
             kwargs: dict = {
                 "model": self.model,
@@ -46,10 +50,8 @@ class LLM:
             kwargs.update(extras)
             r = self._client.chat.completions.create(**kwargs)
             u = getattr(r, "usage", None)
-            return ChatResult(
+            return self._result(
                 text=r.choices[0].message.content or "",
-                provider=self.provider,
-                model=self.model,
                 prompt_tokens=getattr(u, "prompt_tokens", None),
                 completion_tokens=getattr(u, "completion_tokens", None),
             )
@@ -62,10 +64,8 @@ class LLM:
                 temperature=temperature,
                 messages=[{"role": "user", "content": user}],
             )
-            return ChatResult(
+            return self._result(
                 text="".join(block.text for block in r.content if block.type == "text"),
-                provider=self.provider,
-                model=self.model,
                 prompt_tokens=r.usage.input_tokens,
                 completion_tokens=r.usage.output_tokens,
             )
@@ -91,12 +91,21 @@ class LLM:
                 model_extras={"max_completion_tokens": max_tokens, **extras},
             )
         u = getattr(r, "usage", None)
-        return ChatResult(
+        return self._result(
             text=r.choices[0].message.content or "",
-            provider=self.provider,
-            model=self.model,
             prompt_tokens=getattr(u, "prompt_tokens", None),
             completion_tokens=getattr(u, "completion_tokens", None),
+        )
+
+    def _result(self, text: str, prompt_tokens: int | None,
+                completion_tokens: int | None) -> ChatResult:
+        check_output(text)
+        return ChatResult(
+            text=text,
+            provider=self.provider,
+            model=self.model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
         )
 
     def describe(self) -> dict:

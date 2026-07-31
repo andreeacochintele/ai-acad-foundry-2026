@@ -16,6 +16,7 @@ from .agents import foundry_agent, local_agent
 from .agents.persona import PersonaNotFound, available_names, load_persona, list_personas, PERSONA_DIR
 from .config import settings
 from .embeddings import get_embedder
+from .guardrails import GuardrailViolation
 from .llm import get_llm
 from .schemas import (
     AgentInfo, AgentListResponse, AskRequest, AskResponse, AzureDeployment, AzureDeployments,
@@ -412,6 +413,8 @@ def ask(req: AskRequest) -> AskResponse:
             reply = local_agent.run(persona, req.question, chunks, temperature=req.temperature, history=history)
     except foundry_agent.FoundryUnavailable as e:
         raise HTTPException(status_code=503, detail=str(e))
+    except GuardrailViolation as e:
+        raise HTTPException(status_code=422, detail=f"Blocked by guardrails: {e}")
     except Exception as e:
         raise HTTPException(status_code=502,
                             detail=f"Agent run failed (mode={mode}, provider={settings.llm_provider}): {e}")
@@ -776,6 +779,8 @@ def fact_check(req: FactCheckRequest) -> FactCheckResponse:
     try:
         result = get_llm().chat(system=system, user=prompt,
                                 temperature=0.0, max_tokens=settings.llm_max_tokens)
+    except GuardrailViolation as e:
+        raise HTTPException(status_code=422, detail=f"Blocked by guardrails: {e}")
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"LLM call failed: {e}")
 
