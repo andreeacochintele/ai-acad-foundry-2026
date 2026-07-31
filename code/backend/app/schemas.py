@@ -19,7 +19,7 @@ class ChunkRequest(BaseModel):
         "chunk_overlap": 30,
     }]}}
 
-    text: str = Field(..., description="Raw text to split", min_length=1)
+    text: str = Field(..., description="Raw text to split", min_length=1, max_length=200_000)
     strategy: Optional[Strategy] = Field(None, description="Defaults to CHUNK_STRATEGY from .env")
     chunk_size: Optional[int] = Field(None, ge=50, description="Target size, characters (≥ 50)")
     chunk_overlap: Optional[int] = Field(None, ge=0, description="Overlap, characters")
@@ -82,7 +82,7 @@ class SearchRequest(BaseModel):
         "top_k": 3,
     }]}}
 
-    query: str = Field(..., min_length=1)
+    query: str = Field(..., min_length=1, max_length=2000)
     top_k: Optional[int] = Field(None, ge=1, le=50)
 
     # Part 5 improvements
@@ -149,7 +149,7 @@ class AskRequest(BaseModel):
         "agent": "lyrical",
     }]}}
 
-    question: str = Field(..., min_length=1)
+    question: str = Field(..., min_length=1, max_length=8000)
     history: list[ChatTurn] = Field(
         default_factory=list,
         description="Prior turns in this conversation, oldest first. Only `question` is "
@@ -281,6 +281,10 @@ class AzureStatus(BaseModel):
 class Usage(BaseModel):
     prompt_tokens: Optional[int] = None
     completion_tokens: Optional[int] = None
+    estimated_cost_usd: Optional[float] = Field(
+        None, description="Rough estimate from a static price list (app/cost.py); "
+                          "None when the model isn't in that list — never a guessed rate."
+    )
 
 
 class FactCheckVerdict(BaseModel):
@@ -335,7 +339,7 @@ class WebSearchRequest(BaseModel):
         "max_results": 5,
     }]}}
 
-    query: str = Field(..., min_length=1)
+    query: str = Field(..., min_length=1, max_length=2000)
     max_results: Optional[int] = Field(None, ge=1, le=15)
 
 
@@ -360,7 +364,7 @@ class FactCheckRequest(BaseModel):
         "pages": 3,
     }]}}
 
-    claim: str = Field(..., min_length=1, description="The statement to verify")
+    claim: str = Field(..., min_length=1, max_length=4000, description="The statement to verify")
     pages: Optional[int] = Field(None, ge=1, le=5, description="How many results to read in full")
     urls: list[str] = Field(
         default_factory=list,
@@ -413,7 +417,7 @@ class AzureSearchQueryRequest(BaseModel):
         "top": 3,
     }]}}
 
-    query: str = Field(..., min_length=1)
+    query: str = Field(..., min_length=1, max_length=2000)
     mode: Literal["keyword", "vector", "hybrid"] = Field(
         "hybrid", description="keyword = BM25 only · vector = embeddings only · hybrid = both, fused"
     )

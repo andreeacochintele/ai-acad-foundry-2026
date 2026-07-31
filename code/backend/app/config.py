@@ -7,6 +7,7 @@ class Settings(BaseSettings):
 
     # --- server -------------------------------------------------------------
     api_port: int = 7799
+    log_level: str = "INFO"   # DEBUG | INFO | WARNING | ERROR
 
     # --- vector store (Qdrant) ---------------------------------------------
     qdrant_url: str = "http://localhost:7833"

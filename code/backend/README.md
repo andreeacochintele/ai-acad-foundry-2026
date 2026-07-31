@@ -354,6 +354,42 @@ already in memory rather than calling `/sessions/{id}/export`, so exporting stil
 for a conversation the backend hasn't (yet) persisted — the endpoint above remains
 useful directly (Swagger, scripts, another client).
 
+## Guardrails, logging, and cost tracking
+
+`app/guardrails/` runs three checkpoints around every `LLM.chat()` call, local
+or Foundry-hosted alike (`app/llm.py`):
+
+- **Request shape** (`model_gr.py`) — provider is one of the four supported,
+  the model/deployment name matches an approved family (`gpt-4x`, `gpt-5x`,
+  claude opus/sonnet/haiku/fable — a local `lmstudio` model is always allowed,
+  since there's no vendor cost or compliance exposure to police there),
+  temperature and `max_tokens` are in sane ranges.
+- **Input** (`input_gr.py`) — length cap, common prompt-injection phrasing
+  ("ignore all previous instructions", …), and coarse PII patterns (email,
+  IBAN, card number, Romanian CNP).
+- **Output** (`output_gr.py`) — empty replies, the same PII patterns leaking
+  back out, and a blocked-terms list (empty by default — a placeholder for a
+  real moderation call).
+
+A violation raises `GuardrailViolation`, which `/ask` and `/tools/fact-check`
+turn into a `422` with every reason found (never just the first). Toggle the
+whole thing off with `GUARDRAILS_ENABLED=false`. Unit tests for all three
+checkpoints live in `tests/` (see **Tests**, below) — including regression
+tests for a bug where the model allowlist rejected two of the four supported
+providers' own default models before it ever shipped.
+
+**Logging**: `app/logging_config.py` configures stdlib `logging` to stderr;
+level via `LOG_LEVEL` (`INFO` by default). A global FastAPI exception handler
+in `main.py` catches anything no endpoint already turns into a clean
+`HTTPException`, logs it server-side, and still returns JSON instead of a
+bare, untraceable 500.
+
+**Cost tracking**: every `AskResponse.usage` (and the fact-check endpoints')
+now includes `estimated_cost_usd`, computed in `app/cost.py` from a small
+static price list matched against the model name. It's illustrative, not a
+billing-grade rate card — prices move and an unrecognized or renamed
+deployment correctly returns `null` rather than a guessed number.
+
 ## Choosing providers
 
 Two `.env` lines switch everything; restart (or let reload pick it up):
@@ -417,6 +453,19 @@ vector spaces). `DELETE /collection` and re-ingest.
    `LMSTUDIO_EMBEDDING_MODEL`; set both providers to `lmstudio`.
 6. Docker note: from inside the container the host's LM Studio is
    `http://host.docker.internal:1234/v1` (see the commented line in docker-compose.yml).
+
+## Tests
+
+```bash
+uv sync                # installs pytest too (a dev dependency group)
+uv run pytest tests/ -v
+```
+
+Pure-logic coverage only, for now — the guardrail checkpoints (`model_gr.py`,
+`input_gr.py`, `output_gr.py`) and the cost estimator (`app/cost.py`), none of
+which need Qdrant, an LLM provider, or a running server. Endpoint-level tests
+against `/ask`, `/ingest`, etc. would need Azure/Qdrant mocked or stubbed out
+and don't exist yet — see the project `NOTES.md` for what's still open.
 
 ## Troubleshooting
 

@@ -21,3 +21,11 @@ dependencies = [
 [tool.uv]
 # This is an application, not an installable package — sync dependencies only.
 package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]   # so `from app...` resolves without installing the app as a package
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

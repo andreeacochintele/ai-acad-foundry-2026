@@ -5,9 +5,11 @@ Swagger UI:  /docs        ReDoc: /redoc
 """
 from __future__ import annotations
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+import logging
+
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 
 from . import chunking
 from . import rag
@@ -15,9 +17,11 @@ from . import sessions as sessions_store
 from .agents import foundry_agent, local_agent
 from .agents.persona import PersonaNotFound, available_names, load_persona, list_personas, PERSONA_DIR
 from .config import settings
+from .cost import estimate_cost_usd
 from .embeddings import get_embedder
 from .guardrails import GuardrailViolation
 from .llm import get_llm
+from .logging_config import configure_logging
 from .schemas import (
     AgentInfo, AgentListResponse, AskRequest, AskResponse, AzureDeployment, AzureDeployments,
     AzureStatus, ChunkInfo, ChunkRequest, ChunkResponse, CollectionInfo, FoundryAvailability,
@@ -45,7 +49,20 @@ app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
 )
 
+configure_logging()
+logger = logging.getLogger(__name__)
+
 store = VectorStore()
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Last-resort net: every endpoint already turns its own known failure
+    modes into a clean HTTPException, but nothing previously caught the
+    unknown ones — they hit FastAPI's default handler, which doesn't log
+    server-side, and returns a bare, uninformative 500."""
+    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+    return JSONResponse(status_code=500, content={"detail": f"Internal server error: {exc}"})
 
 
 # --- helpers ------------------------------------------------------------------
@@ -414,6 +431,7 @@ def ask(req: AskRequest) -> AskResponse:
     except foundry_agent.FoundryUnavailable as e:
         raise HTTPException(status_code=503, detail=str(e))
     except GuardrailViolation as e:
+        logger.warning("Guardrail violation: %s", e)
         raise HTTPException(status_code=422, detail=f"Blocked by guardrails: {e}")
     except Exception as e:
         raise HTTPException(status_code=502,
@@ -452,7 +470,9 @@ def ask(req: AskRequest) -> AskResponse:
         system_prompt=reply.system_prompt,
         prompt_sent=reply.prompt_sent,
         retrieved=retrieved,
-        usage=Usage(prompt_tokens=reply.prompt_tokens, completion_tokens=reply.completion_tokens),
+        usage=Usage(prompt_tokens=reply.prompt_tokens, completion_tokens=reply.completion_tokens,
+                    estimated_cost_usd=estimate_cost_usd(reply.provider, reply.model,
+                                                          reply.prompt_tokens, reply.completion_tokens)),
         rewritten_query=rewritten_query,
     )
 
@@ -514,8 +534,9 @@ def _run_fact_check(claim: str, urls: list[str], pages: int) -> dict:
         "evidence_from": provider,
         "sources": sources,
         "prompt_sent": prompt,
-        "usage": Usage(prompt_tokens=result.prompt_tokens,
-                       completion_tokens=result.completion_tokens),
+        "usage": Usage(prompt_tokens=result.prompt_tokens, completion_tokens=result.completion_tokens,
+                       estimated_cost_usd=estimate_cost_usd(result.provider, result.model,
+                                                             result.prompt_tokens, result.completion_tokens)),
     }
 
 
@@ -780,6 +801,7 @@ def fact_check(req: FactCheckRequest) -> FactCheckResponse:
         result = get_llm().chat(system=system, user=prompt,
                                 temperature=0.0, max_tokens=settings.llm_max_tokens)
     except GuardrailViolation as e:
+        logger.warning("Guardrail violation: %s", e)
         raise HTTPException(status_code=422, detail=f"Blocked by guardrails: {e}")
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"LLM call failed: {e}")
@@ -798,7 +820,9 @@ def fact_check(req: FactCheckRequest) -> FactCheckResponse:
         reasoning=field("REASONING", result.text.strip()[:500]),
         sources=sources,
         prompt_sent=prompt,
-        usage=Usage(prompt_tokens=result.prompt_tokens, completion_tokens=result.completion_tokens),
+        usage=Usage(prompt_tokens=result.prompt_tokens, completion_tokens=result.completion_tokens,
+                    estimated_cost_usd=estimate_cost_usd(result.provider, result.model,
+                                                          result.prompt_tokens, result.completion_tokens)),
     )
 
 
