@@ -41,6 +41,8 @@ export const api = {
 
   azure: () => request('/azure'),
 
+  analyticsUsage: () => request('/analytics/usage'),
+
   sessions: {
     list: (owner) => request(owner ? `/sessions?owner=${encodeURIComponent(owner)}` : '/sessions'),
     get: (id) => request(`/sessions/${encodeURIComponent(id)}`),

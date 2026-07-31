@@ -3,6 +3,7 @@ import { api } from './api'
 import { BrandMark } from './components'
 import { useLanguage } from './i18n.jsx'
 import Agents from './views/Agents'
+import Analytics from './views/Analytics'
 import Calculator from './views/Calculator'
 import Chat from './views/Chat'
 import Knowledge from './views/Knowledge'
@@ -24,6 +25,7 @@ const VIEWS = [
   { id: 'agents', label: 'nav.agents', group: 'Platform' },
   { id: 'tools', label: 'nav.tools', group: 'Platform' },
   { id: 'status', label: 'nav.status', group: 'Platform' },
+  { id: 'analytics', label: 'nav.analytics', group: 'Platform' },
 ]
 
 const UI_MODE_KEY = 'libra-console-ui-mode'
@@ -259,6 +261,7 @@ export default function App() {
         {view === 'tools' && <Tools />}
         {view === 'status' && <Status health={health} reload={loadHealth}
                                       azure={azure} reloadAzure={loadAzure} />}
+        {view === 'analytics' && <Analytics />}
       </main>
     </div>
   )

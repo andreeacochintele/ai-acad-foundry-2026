@@ -11,6 +11,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
+from . import analytics
 from . import chunking
 from . import rag
 from . import sessions as sessions_store
@@ -941,3 +942,15 @@ def sessions_export(id: str) -> Response:
         raise HTTPException(status_code=404, detail=str(e))
     return Response(content=markdown, media_type="text/markdown",
                     headers={"Content-Disposition": f'attachment; filename="{id}.md"'})
+
+
+@app.get("/analytics/usage", tags=["8 · sessions"])
+def analytics_usage() -> dict:
+    """Token/cost analytics aggregated across every saved conversation —
+    totals, and breakdowns by day, agent, model, and login identity.
+
+    Reads the same session files `/sessions` does; no separate tracking
+    store. Console-side this powers the admin-only Analytics view — there is
+    no server-side role check (consistent with the rest of this console: the
+    login gate is a UI convenience, not real authentication)."""
+    return analytics.compute_usage_analytics(sessions_store.list_sessions())

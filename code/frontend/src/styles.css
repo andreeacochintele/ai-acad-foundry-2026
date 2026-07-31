@@ -127,6 +127,15 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
 
+/* Single-series bar chart (Analytics) — one hue, the console's own accent;
+   category identity comes from the row label, not a legend. */
+.bar-chart { display: flex; flex-direction: column; gap: .5rem; }
+.bar-chart-row { display: grid; grid-template-columns: 5rem 1fr 4.5rem; align-items: center; gap: .6rem; }
+.bar-chart-label { font-size: .78rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-chart-track { height: 10px; border-radius: var(--r-pill); background: var(--surface-2); overflow: hidden; }
+.bar-chart-fill { height: 100%; min-width: 3px; border-radius: var(--r-pill); background: var(--accent); }
+.bar-chart-value { font-family: var(--font-mono); font-size: .78rem; text-align: right; color: var(--text-muted); }
+
 .badge { display: inline-flex; align-items: center; gap: .35em; font-size: .72rem; font-weight: 600; padding: .32em .7em; border-radius: var(--r-pill); background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
 .badge.gold { background: rgba(228,192,46,.18); color: var(--c-gold); }
 .badge.crimson { background: rgba(199,58,82,.18); color: #ff8497; }

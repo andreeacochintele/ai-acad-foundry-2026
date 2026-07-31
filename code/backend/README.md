@@ -343,6 +343,7 @@ GET    /sessions/{id}         # resume one — the exact messages that were save
 POST   /sessions              # create (omit id) or update a conversation
 DELETE /sessions/{id}         # remove a conversation's JSON file
 GET    /sessions/{id}/export  # download it as a readable Markdown transcript
+GET    /analytics/usage       # token/cost totals aggregated across every session
 ```
 
 One JSON file per conversation, in `app/data/sessions/` (`app/sessions.py`) — no
@@ -389,6 +390,11 @@ now includes `estimated_cost_usd`, computed in `app/cost.py` from a small
 static price list matched against the model name. It's illustrative, not a
 billing-grade rate card — prices move and an unrecognized or renamed
 deployment correctly returns `null` rather than a guessed number.
+`GET /analytics/usage` (`app/analytics.py`) rolls that same per-message usage
+up across every saved session — totals, plus breakdowns by day, agent,
+model, and login identity — with no separate tracking store; it just reads
+what `/sessions` already persists. Powers the console's admin-only
+Analytics view.
 
 ## Choosing providers
 

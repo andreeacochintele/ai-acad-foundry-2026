@@ -26,7 +26,7 @@ const CANDIDATES = [
 const ROUTES = [
   '/health', '/config', '/azure',
   '/chunk', '/ingest', '/collection', '/search', '/ask',
-  '/agents', '/tools', '/sessions',
+  '/agents', '/tools', '/sessions', '/analytics',
 ]
 
 function answers(base, timeout = 2000) {

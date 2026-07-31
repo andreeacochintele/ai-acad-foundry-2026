@@ -190,6 +190,51 @@ Uncommitted — everything below is new working-tree state on top of `68ad027`.
   (the hamburger still opens it manually at any width).
 - Chat message text sized down to 12px.
 
+## Guardrails, observability, and a token/cost analytics dashboard (this session)
+
+### LLM guardrails
+
+- `app/guardrails/`: three checkpoints around every `LLM.chat()` call —
+  request shape (provider/model/temperature/max_tokens), input (length,
+  prompt-injection phrasing, coarse PII), output (empty replies, PII leaks,
+  a blocked-terms placeholder). A violation is a `422` from `/ask` and
+  `/tools/fact-check` with every reason found, not just the first.
+- Fixed two bugs in it before it ever shipped enabled-by-default: the model
+  allowlist only recognized 2 of Claude's 4 tiers and separately policed the
+  local `lmstudio` lane too — between the two, 2 of the 4 supported
+  providers were completely unusable the moment guardrails turned on.
+
+### Logging and error handling
+
+- `app/logging_config.py` (`LOG_LEVEL`) — there was no logging anywhere in
+  this backend before now. A global FastAPI exception handler catches
+  whatever no endpoint already turns into a clean `HTTPException`, logs it,
+  and still returns JSON instead of a bare 500.
+
+### Cost tracking and analytics dashboard
+
+- `app/cost.py`: a static price list turns prompt/completion token counts
+  into `estimated_cost_usd` on every `AskResponse.usage` — `null`, never a
+  guess, for a model not in the list.
+- `app/analytics.py` + `GET /analytics/usage`: rolls that per-message usage
+  up across every saved session (no separate tracking store — it reads what
+  `/sessions` already persists) into totals plus breakdowns by day, agent,
+  model, and login identity.
+- New admin-only **Analytics** view (`views/Analytics.jsx`): stat tiles for
+  the totals, a single-hue bar chart each for cost-by-day and
+  cost-by-agent, and detail tables for the model and login-identity
+  breakdowns.
+
+### Input validation and tests
+
+- Every previously-unbounded text field (`question`, `claim`, search
+  queries, chunk text) now has a `max_length`, rejected by Pydantic at the
+  API boundary instead of only being caught deep inside the LLM call.
+- First test suite for this backend: pytest + 36 tests covering the
+  guardrail checkpoints, the cost estimator, and the analytics aggregation —
+  the parts with no external (Azure/Qdrant) dependency, including
+  regression tests for the model-allowlist bug above.
+
 ## Chat console additions (previous session)
 
 Committed as `Add speech-to-text and session persistence to the Chat console`
