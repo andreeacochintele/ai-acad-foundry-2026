@@ -30,6 +30,12 @@ class Settings(BaseSettings):
     # --- guardrails ------------------------------------------------------------
     guardrails_enabled: bool = True   # app/guardrails — checks around every LLM call
 
+    # --- rate limiting -----------------------------------------------------------
+    # app/ratelimit.py — per-client-IP, on endpoints that call a paid external API.
+    # No real authentication in this console, so IP is the only identity available.
+    rate_limit_enabled: bool = True
+    rate_limit_per_minute: int = 20
+
     # --- provider selection --------------------------------------------------
     llm_provider: str = "openai"            # lmstudio | openai | anthropic | azure
     embedding_provider: str = "openai"      # lmstudio | openai | azure  (Anthropic has no embeddings API)

@@ -314,7 +314,7 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
     if (activeId === id) setActiveId(finalList[0].id)
     // 404 here just means this conversation never got its first message — never
     // written to disk in the first place, so there is nothing to remove.
-    api.sessions.remove(id).catch((err) => { if (err.status !== 404) setError(err.message) })
+    api.sessions.remove(id, ownerKey).catch((err) => { if (err.status !== 404) setError(err.message) })
   }
 
   // Built from the conversation already sitting in local state — no round trip to

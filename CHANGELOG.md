@@ -249,6 +249,29 @@ Uncommitted — everything below is new working-tree state on top of `68ad027`.
   external (Azure/Qdrant) dependency, including
   regression tests for the model-allowlist bug above.
 
+### Rate limiting
+
+- `app/ratelimit.py`: an in-memory, per-client-IP fixed window (no real
+  authentication in this console, so IP is the only identity available) —
+  `429` with a `Retry-After` header past `RATE_LIMIT_PER_MINUTE` (20 by
+  default). Added to every endpoint that calls a paid external API: `/ask`,
+  `/ingest`, `/search`, `/tools/speak`, `/tools/transcribe`,
+  `/tools/fact-check`, `/tools/web-search`, `/tools/azure-search/sync`,
+  `/tools/azure-search/query`. Dependency-free by design — good enough for a
+  single-instance deployment; a multi-instance one would need a shared store
+  (Redis) instead of the in-process dict, which is a known limitation, not
+  solved here. Toggle off with `RATE_LIMIT_ENABLED=false`. 6 tests.
+
+### Closed a session-ownership gap
+
+- The owner scoping added earlier only covered `GET /sessions` (the list) —
+  `GET`/`DELETE /sessions/{id}` and its `/export` still worked for any id
+  regardless of who owned it, so a known or guessed session id could be read
+  or deleted across login identities. All three now accept the same
+  `?owner=` param and 404 (indistinguishable from a nonexistent id) on a
+  mismatch; omitting it keeps the old unscoped behaviour, and the console
+  itself now passes its own `ownerKey` on delete. 6 tests.
+
 ## Chat console additions (previous session)
 
 Committed as `Add speech-to-text and session persistence to the Chat console`

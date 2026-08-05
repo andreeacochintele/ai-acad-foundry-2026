@@ -355,7 +355,13 @@ already in memory rather than calling `/sessions/{id}/export`, so exporting stil
 for a conversation the backend hasn't (yet) persisted — the endpoint above remains
 useful directly (Swagger, scripts, another client).
 
-## Guardrails, logging, and cost tracking
+`GET`/`DELETE /sessions/{id}` and its `/export` all accept the same `?owner=`
+query param `GET /sessions` does — pass it and a mismatched owner 404s
+exactly like a nonexistent id, closing the gap where knowing (or guessing) a
+session id let you read or delete across login identities. Omitting it keeps
+the old unscoped behaviour.
+
+## Guardrails, rate limiting, logging, and cost tracking
 
 `app/guardrails/` runs three checkpoints around every `LLM.chat()` call, local
 or Foundry-hosted alike (`app/llm.py`):
@@ -378,6 +384,16 @@ whole thing off with `GUARDRAILS_ENABLED=false`. Unit tests for all three
 checkpoints live in `tests/` (see **Tests**, below) — including regression
 tests for a bug where the model allowlist rejected two of the four supported
 providers' own default models before it ever shipped.
+
+**Rate limiting**: `app/ratelimit.py` caps every endpoint that calls a paid
+external API (`/ask`, `/ingest`, `/search`, `/tools/speak`,
+`/tools/transcribe`, `/tools/fact-check`, `/tools/web-search`, the Azure AI
+Search tools) to `RATE_LIMIT_PER_MINUTE` (20 by default) requests per client
+IP — `429` with a `Retry-After` header past that. There's no real
+authentication in this console, so IP is the only identity available; an
+in-memory fixed window, not a shared store, so it resets per process and
+doesn't coordinate across multiple instances. Toggle off with
+`RATE_LIMIT_ENABLED=false`.
 
 **Logging**: `app/logging_config.py` configures stdlib `logging` to stderr;
 level via `LOG_LEVEL` (`INFO` by default). A global FastAPI exception handler

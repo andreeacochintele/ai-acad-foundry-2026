@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
@@ -23,6 +23,7 @@ from .embeddings import get_embedder
 from .guardrails import GuardrailViolation
 from .llm import get_llm
 from .logging_config import configure_logging
+from .ratelimit import rate_limit
 from .schemas import (
     AgentInfo, AgentListResponse, AskRequest, AskResponse, AzureDeployment, AzureDeployments,
     AzureStatus, ChunkInfo, ChunkRequest, ChunkResponse, CollectionInfo, FoundryAvailability,
@@ -278,7 +279,8 @@ def chunk_only(req: ChunkRequest) -> ChunkResponse:
 
 
 # --- ingestion ----------------------------------------------------------------
-@app.post("/ingest", response_model=IngestResponse, tags=["2 · ingestion"])
+@app.post("/ingest", response_model=IngestResponse, tags=["2 · ingestion"],
+          dependencies=[Depends(rate_limit)])
 def ingest(req: IngestRequest) -> IngestResponse:
     """Chunk -> embed -> store in Qdrant. The response shows the chunks, the
     vector dimension, and a peek at the first embedding."""
@@ -336,7 +338,8 @@ def collection_reset() -> dict:
 
 
 # --- retrieval ----------------------------------------------------------------
-@app.post("/search", response_model=SearchResponse, tags=["3 · retrieval"])
+@app.post("/search", response_model=SearchResponse, tags=["3 · retrieval"],
+          dependencies=[Depends(rate_limit)])
 def search(req: SearchRequest) -> SearchResponse:
     """Embed the query, return the nearest chunks with their cosine similarity
     scores — retrieval with the curtain open."""
@@ -368,7 +371,8 @@ def search(req: SearchRequest) -> SearchResponse:
 
 
 # --- generation ---------------------------------------------------------------
-@app.post("/ask", response_model=AskResponse, tags=["4 · generation"])
+@app.post("/ask", response_model=AskResponse, tags=["4 · generation"],
+          dependencies=[Depends(rate_limit)])
 def ask(req: AskRequest) -> AskResponse:
     """The finale: an **agent** answers, with or without retrieval.
 
@@ -680,7 +684,7 @@ def web_fetch(req: ScrapeRequest) -> ScrapeResponse:
     return ScrapeResponse(**result.__dict__)
 
 
-@app.post("/tools/speak", tags=["6 · tools"],
+@app.post("/tools/speak", tags=["6 · tools"], dependencies=[Depends(rate_limit)],
           responses={200: {"content": {"audio/wav": {}}, "description": "WAV audio"}})
 def speak(req: SpeakRequest):
     """Text → speech (Azure AI Speech). Returns a WAV file you can play or download."""
@@ -694,7 +698,8 @@ def speak(req: SpeakRequest):
                     headers={"Content-Disposition": 'inline; filename="libra-assist.wav"'})
 
 
-@app.post("/tools/web-search", response_model=WebSearchResponse, tags=["6 · tools"])
+@app.post("/tools/web-search", response_model=WebSearchResponse, tags=["6 · tools"],
+          dependencies=[Depends(rate_limit)])
 def web_search(req: WebSearchRequest) -> WebSearchResponse:
     """Search the open web — **without an API key**.
 
@@ -738,7 +743,8 @@ def web_search(req: WebSearchRequest) -> WebSearchResponse:
     )
 
 
-@app.post("/tools/fact-check", response_model=FactCheckResponse, tags=["6 · tools"])
+@app.post("/tools/fact-check", response_model=FactCheckResponse, tags=["6 · tools"],
+          dependencies=[Depends(rate_limit)])
 def fact_check(req: FactCheckRequest) -> FactCheckResponse:
     """Search the web, read the top results, and judge a claim against them.
 
@@ -827,7 +833,8 @@ def fact_check(req: FactCheckRequest) -> FactCheckResponse:
     )
 
 
-@app.post("/tools/azure-search/sync", tags=["7 · Azure AI Search"])
+@app.post("/tools/azure-search/sync", tags=["7 · Azure AI Search"],
+          dependencies=[Depends(rate_limit)])
 def azure_search_sync(req: AzureSearchSyncRequest) -> dict:
     """Chunk, embed and push into **Azure AI Search** instead of the local store.
 
@@ -851,7 +858,8 @@ def azure_search_sync(req: AzureSearchSyncRequest) -> dict:
     }
 
 
-@app.post("/tools/azure-search/query", tags=["7 · Azure AI Search"])
+@app.post("/tools/azure-search/query", tags=["7 · Azure AI Search"],
+          dependencies=[Depends(rate_limit)])
 def azure_search_query(req: AzureSearchQueryRequest) -> dict:
     """Keyword, vector or **hybrid** search — run the same query three ways and
     compare. Hybrid is where exact terms and paraphrases both land."""
@@ -872,7 +880,8 @@ def azure_search_status() -> dict:
     return aisearch.describe()
 
 
-@app.post("/tools/transcribe", response_model=TranscribeResponse, tags=["6 · tools"])
+@app.post("/tools/transcribe", response_model=TranscribeResponse, tags=["6 · tools"],
+          dependencies=[Depends(rate_limit)])
 async def transcribe(file: UploadFile = File(..., description="WAV, 16 kHz mono, under ~60 s"),
                      language: str | None = Form(None, description="e.g. en-US, ro-RO — must match the spoken language or recognition garbles")):
     """Speech → text (Azure AI Speech). Upload the WAV you just generated and
@@ -900,14 +909,22 @@ def sessions_list(owner: str | None = None) -> list[dict]:
 
 
 @app.get("/sessions/{id}", tags=["8 · sessions"])
-def sessions_get(id: str) -> dict:
-    """Resume one conversation — the exact messages that were saved."""
+def sessions_get(id: str, owner: str | None = None) -> dict:
+    """Resume one conversation — the exact messages that were saved.
+
+    `owner`, if passed, must match the session's owner or this 404s exactly
+    like a nonexistent id — the same login-identity boundary `/sessions`
+    already enforces for the list, now closed for direct lookup too.
+    """
     try:
-        return sessions_store.load_session(id)
+        session = sessions_store.load_session(id)
+        if owner is not None and session.get("owner", "") != owner:
+            raise SessionNotFound(id)
     except InvalidSessionId as e:
         raise HTTPException(status_code=422, detail=str(e))
     except SessionNotFound as e:
         raise HTTPException(status_code=404, detail=str(e))
+    return session
 
 
 @app.post("/sessions", tags=["8 · sessions"])
@@ -920,9 +937,15 @@ def sessions_save(req: SessionSave) -> dict:
 
 
 @app.delete("/sessions/{id}", tags=["8 · sessions"])
-def sessions_delete(id: str) -> dict:
-    """Remove a conversation's JSON file from disk."""
+def sessions_delete(id: str, owner: str | None = None) -> dict:
+    """Remove a conversation's JSON file from disk.
+
+    `owner`, if passed, must match — see sessions_get."""
     try:
+        if owner is not None:
+            session = sessions_store.load_session(id)
+            if session.get("owner", "") != owner:
+                raise SessionNotFound(id)
         sessions_store.delete_session(id)
     except InvalidSessionId as e:
         raise HTTPException(status_code=422, detail=str(e))
@@ -932,9 +955,15 @@ def sessions_delete(id: str) -> dict:
 
 
 @app.get("/sessions/{id}/export", tags=["8 · sessions"])
-def sessions_export(id: str) -> Response:
-    """The conversation as a readable Markdown transcript, ready to download."""
+def sessions_export(id: str, owner: str | None = None) -> Response:
+    """The conversation as a readable Markdown transcript, ready to download.
+
+    `owner`, if passed, must match — see sessions_get."""
     try:
+        if owner is not None:
+            session = sessions_store.load_session(id)
+            if session.get("owner", "") != owner:
+                raise SessionNotFound(id)
         markdown = sessions_store.export_markdown(id)
     except InvalidSessionId as e:
         raise HTTPException(status_code=422, detail=str(e))

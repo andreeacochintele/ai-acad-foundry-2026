@@ -45,10 +45,10 @@ export const api = {
 
   sessions: {
     list: (owner) => request(owner ? `/sessions?owner=${encodeURIComponent(owner)}` : '/sessions'),
-    get: (id) => request(`/sessions/${encodeURIComponent(id)}`),
+    get: (id, owner) => request(`/sessions/${encodeURIComponent(id)}${owner ? `?owner=${encodeURIComponent(owner)}` : ''}`),
     save: (payload) => request('/sessions', { method: 'POST', body: payload }),
-    remove: (id) => request(`/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-    exportMarkdown: (id) => request(`/sessions/${encodeURIComponent(id)}/export`, { raw: true }),
+    remove: (id, owner) => request(`/sessions/${encodeURIComponent(id)}${owner ? `?owner=${encodeURIComponent(owner)}` : ''}`, { method: 'DELETE' }),
+    exportMarkdown: (id, owner) => request(`/sessions/${encodeURIComponent(id)}/export${owner ? `?owner=${encodeURIComponent(owner)}` : ''}`, { raw: true }),
   },
 
   webFetch: (payload) => request('/tools/web-fetch', { method: 'POST', body: payload }),
