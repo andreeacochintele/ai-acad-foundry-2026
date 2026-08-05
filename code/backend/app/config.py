@@ -1,6 +1,8 @@
 """Application settings — every knob lives in .env, every field here documents one."""
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from .keyvault import apply_key_vault_secrets
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -68,6 +70,12 @@ class Settings(BaseSettings):
     azure_foundry_project: str = ""
     azure_location: str = "swedencentral"
 
+    # --- secrets (Azure Key Vault, optional) -----------------------------------
+    # Set this and any of the *_api_key / *_key fields above left blank in .env
+    # are pulled from the vault instead — see app/keyvault.py and
+    # scripts/azure/08-provision-keyvault.ps1.
+    azure_key_vault_url: str = ""            # https://<vault-name>.vault.azure.net/
+
     # --- LM Studio (local, free — OpenAI-compatible server) ------------------
     lmstudio_base_url: str = "http://localhost:1234/v1"
     lmstudio_model: str = "google/gemma-3-4b"
@@ -91,3 +99,4 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+apply_key_vault_secrets(settings)   # no-op unless AZURE_KEY_VAULT_URL is set

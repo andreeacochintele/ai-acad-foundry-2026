@@ -460,6 +460,28 @@ vector spaces). `DELETE /collection` and re-ingest.
 6. Docker note: from inside the container the host's LM Studio is
    `http://host.docker.internal:1234/v1` (see the commented line in docker-compose.yml).
 
+### Azure Key Vault (optional — moves secrets out of .env)
+
+The six API-key-shaped settings (`AZURE_AI_API_KEY`, `AZURE_SPEECH_KEY`,
+`AZURE_SEARCH_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `SEARCH_API_KEY`)
+can live in a Key Vault instead of in plaintext in `.env`:
+
+1. `cd scripts/azure && ./08-provision-keyvault.ps1` (or `.sh`) — creates an
+   RBAC-authorized vault, grants your signed-in identity write access, and
+   pushes whichever of the six are already set in your `.env` into it under
+   a matching kebab-case name (`OPENAI_API_KEY` → `openai-api-key`).
+2. It prints (and offers to write) one line: `AZURE_KEY_VAULT_URL=...`.
+   That's the only thing that goes in `.env` — the actual values now live
+   only in the vault.
+3. Restart the backend. `app/keyvault.py` fills in any of the six fields
+   still blank in `.env` from the vault at startup, using the same
+   `DefaultAzureCredential` as everywhere else in this app — your `az login`
+   locally, a managed identity in production (grant it the same "Key Vault
+   Secrets Officer" role the script granted you).
+4. A value already set directly in `.env` always wins — the vault only
+   fills gaps, so this is safe to turn on incrementally, one secret at a
+   time, without breaking a lane you haven't migrated yet.
+
 ## Tests
 
 ```bash

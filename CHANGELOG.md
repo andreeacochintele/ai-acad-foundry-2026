@@ -192,6 +192,19 @@ Uncommitted — everything below is new working-tree state on top of `68ad027`.
 
 ## Guardrails, observability, and a token/cost analytics dashboard (this session)
 
+### Azure Key Vault for secrets
+
+- `app/keyvault.py` + `scripts/azure/08-provision-keyvault.ps1`/`.sh`: the six
+  API-key-shaped settings can live in an RBAC-authorized Key Vault instead of
+  plaintext in `.env`. The script creates the vault, grants the signed-in
+  identity write access, and pushes whichever secrets are already in `.env`
+  into it under a matching kebab-case name; `apply_key_vault_secrets()` fills
+  in any of the six still blank in `.env` from the vault at startup, using
+  the same `DefaultAzureCredential` as the rest of the app. Pull-based and
+  additive — a value already set in `.env` always wins, so this is safe to
+  adopt one secret at a time. New `AZURE_KEY_VAULT_URL` setting; no-op when
+  unset.
+
 ### LLM guardrails
 
 - `app/guardrails/`: three checkpoints around every `LLM.chat()` call —
@@ -230,9 +243,10 @@ Uncommitted — everything below is new working-tree state on top of `68ad027`.
 - Every previously-unbounded text field (`question`, `claim`, search
   queries, chunk text) now has a `max_length`, rejected by Pydantic at the
   API boundary instead of only being caught deep inside the LLM call.
-- First test suite for this backend: pytest + 36 tests covering the
-  guardrail checkpoints, the cost estimator, and the analytics aggregation —
-  the parts with no external (Azure/Qdrant) dependency, including
+- First test suite for this backend: pytest + 41 tests covering the
+  guardrail checkpoints, the cost estimator, the analytics aggregation, and
+  Key Vault secret-loading (mocked `SecretClient`) — the parts with no
+  external (Azure/Qdrant) dependency, including
   regression tests for the model-allowlist bug above.
 
 ## Chat console additions (previous session)

@@ -17,6 +17,7 @@ and rebuildable from nothing.
 | `05-inspect` | Everything you own: deployments, quota, agents, roles |
 | `06-teardown` | Deletes the resource group — the one-command cleanup |
 | `07-provision-search` | Creates an Azure AI Search service — the managed alternative to the Qdrant container |
+| `08-provision-keyvault` | Creates a Key Vault and pushes your current `.env` secrets into it |
 
 Both shells are provided: `.ps1` for PowerShell, `.sh` for bash/zsh.
 
@@ -29,6 +30,7 @@ cd code/backend/scripts/azure
 ./04-invoke-agent.ps1 -Question "Why was my card blocked?"
 ./05-inspect.ps1
 ./07-provision-search.ps1 -Sku free      # -Keyless for Entra instead of an admin key
+./08-provision-keyvault.ps1
 ```
 
 ```bash
@@ -39,6 +41,7 @@ cd code/backend/scripts/azure
 ./03-create-agent.sh lyrical
 ./04-invoke-agent.sh "Why was my card blocked?"
 ./07-provision-search.sh moch-ai-acad srch-moch-acad swedencentral free
+./08-provision-keyvault.sh
 ```
 
 ## The same thing in Python
