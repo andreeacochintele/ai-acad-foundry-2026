@@ -413,7 +413,12 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
   }
 
   async function send(overrideText) {
-    const text = (overrideText ?? question).trim()
+    // A question is still required server-side (AskRequest.question has
+    // min_length=1) — but with a document attached and nothing typed, default
+    // to asking about it rather than leaving Send disabled with no way to use
+    // the attachment on its own.
+    const typed = (overrideText ?? question).trim()
+    const text = typed || (attachedDoc ? t('chat.defaultAttachmentQuestion') : '')
     if (!text || busy) return
     const convId = activeId
     const isFirst = activeConv.messages.length === 0
@@ -762,7 +767,7 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
           <textarea value={question} placeholder={t('chat.placeholder')}
                     onChange={(e) => setQuestion(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }} />
-          <button className="btn btn-primary send-btn" onClick={() => send()} disabled={busy || !question.trim()} title={t('chat.send')} aria-label={t('chat.send')}>
+          <button className="btn btn-primary send-btn" onClick={() => send()} disabled={busy || (!question.trim() && !attachedDoc)} title={t('chat.send')} aria-label={t('chat.send')}>
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M5 12h14" /><path d="m13 6 6 6-6 6" />

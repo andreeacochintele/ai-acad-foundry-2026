@@ -338,6 +338,13 @@ three worst findings:
   in-memory-only React state — so it resets on reload. Attaching again is
   one click; that kept the persistence model simple instead of adding a
   field to keep in sync between `.env`-free local state and saved sessions.
+- **Fixed same-day**: the Send button stayed disabled whenever the question
+  box was empty, with no exception for an attachment — so attaching a
+  document and sending with no typed question (the natural "just summarize
+  it" move) was simply impossible; the button never enabled. `send()` now
+  falls back to a default "please summarize the attached document" question
+  when one is attached and nothing was typed, and Send enables on an
+  attachment alone, not just typed text.
 
 ## Chat console additions (previous session)
 
