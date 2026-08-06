@@ -8,6 +8,7 @@ from __future__ import annotations
 from functools import lru_cache
 
 from .config import settings
+from .retry import with_retries
 
 
 class Embedder:
@@ -18,10 +19,10 @@ class Embedder:
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         if self.provider in ("lmstudio", "openai"):
-            result = self._client.embeddings.create(model=self.model, input=texts)
+            result = with_retries(lambda: self._client.embeddings.create(model=self.model, input=texts))
             return [item.embedding for item in result.data]
         # azure — azure-ai-inference EmbeddingsClient
-        result = self._client.embed(model=self.model, input=texts)
+        result = with_retries(lambda: self._client.embed(model=self.model, input=texts))
         return [item.embedding for item in result.data]
 
     def describe(self) -> dict:

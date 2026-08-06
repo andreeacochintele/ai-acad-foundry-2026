@@ -25,6 +25,7 @@ import time
 import httpx
 
 from ..config import settings
+from ..retry import with_retries
 from .local_agent import AgentReply, build_user_prompt
 from .persona import Persona
 
@@ -90,17 +91,27 @@ def _token() -> str:
 def _call(method: str, path: str, json: dict | None = None,
           api_version: str = API_VERSION, allow: tuple[int, ...] = ()) -> dict:
     """One request to the project endpoint. `allow` lists status codes to return
-    rather than raise on — used to detect "already exists" without an exception."""
+    rather than raise on — used to detect "already exists" without an exception.
+
+    Retries on a transient network failure (see app/retry.py); a
+    FoundryUnavailable from an actual HTTP error response is not retried —
+    that status code would be identical on the next attempt too.
+    """
     base = settings.azure_ai_project_endpoint.rstrip("/")
     url = f"{base}/{path.lstrip('/')}"
     headers = {"Authorization": f"Bearer {_token()}", "Content-Type": "application/json"}
-    response = httpx.request(method, url, params={"api-version": api_version},
-                             headers=headers, json=json, timeout=TIMEOUT)
-    if response.status_code >= 400 and response.status_code not in allow:
-        raise FoundryUnavailable(
-            f"Agent Service returned HTTP {response.status_code} for {method} {path}: "
-            f"{response.text[:300]}"
-        )
+
+    def _request():
+        response = httpx.request(method, url, params={"api-version": api_version},
+                                 headers=headers, json=json, timeout=TIMEOUT)
+        if response.status_code >= 400 and response.status_code not in allow:
+            raise FoundryUnavailable(
+                f"Agent Service returned HTTP {response.status_code} for {method} {path}: "
+                f"{response.text[:300]}"
+            )
+        return response
+
+    response = with_retries(_request, non_retryable=(FoundryUnavailable,))
     body = response.json() if response.content else {}
     if isinstance(body, dict):
         body["_status"] = response.status_code

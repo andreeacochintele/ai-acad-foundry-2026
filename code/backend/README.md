@@ -456,6 +456,13 @@ Chat and embeddings are independent — Claude can answer while Azure embeds.
 ingesting, `/ingest` will refuse with a 409 (different models → incomparable
 vector spaces). `DELETE /collection` and re-ingest.
 
+Every network call to a provider (embeddings, chat, the Foundry Agent Service) goes
+through `app/retry.py::with_retries` — up to 3 attempts with exponential backoff on a
+transient failure (a connection reset, a timeout), so a network blip on the way to
+Azure/OpenAI/Anthropic doesn't have to surface as a failed answer. It does not retry
+an exception this app raises deliberately for a condition retrying won't change
+(`FoundryUnavailable` from an actual error response, for instance).
+
 ## Credentials — step by step
 
 ### Azure Foundry (the course lane)

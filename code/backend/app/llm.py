@@ -10,6 +10,7 @@ from functools import lru_cache
 
 from .config import settings
 from .guardrails import check_input, check_output, check_request
+from .retry import with_retries
 
 
 @dataclass
@@ -48,7 +49,7 @@ class LLM:
             else:
                 kwargs["max_tokens"] = max_tokens
             kwargs.update(extras)
-            r = self._client.chat.completions.create(**kwargs)
+            r = with_retries(lambda: self._client.chat.completions.create(**kwargs))
             u = getattr(r, "usage", None)
             return self._result(
                 text=r.choices[0].message.content or "",
@@ -57,13 +58,13 @@ class LLM:
             )
 
         if self.provider == "anthropic":
-            r = self._client.messages.create(
+            r = with_retries(lambda: self._client.messages.create(
                 model=self.model,
                 system=system,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 messages=[{"role": "user", "content": user}],
-            )
+            ))
             return self._result(
                 text="".join(block.text for block in r.content if block.type == "text"),
                 prompt_tokens=r.usage.input_tokens,
@@ -75,21 +76,27 @@ class LLM:
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ]
-        try:
-            r = self._client.complete(
-                model=self.model, temperature=temperature,
-                max_tokens=max_tokens, messages=messages,
-                **({"model_extras": extras} if extras else {}),
-            )
-        except Exception as e:
-            # The gpt-5 family renamed the output cap. Retry with the new name
-            # rather than making every caller know which generation they are on.
-            if "max_completion_tokens" not in str(e):
-                raise
-            r = self._client.complete(
-                model=self.model, messages=messages,
-                model_extras={"max_completion_tokens": max_tokens, **extras},
-            )
+
+        def _azure_call():
+            try:
+                return self._client.complete(
+                    model=self.model, temperature=temperature,
+                    max_tokens=max_tokens, messages=messages,
+                    **({"model_extras": extras} if extras else {}),
+                )
+            except Exception as e:
+                # The gpt-5 family renamed the output cap. Retry with the new name
+                # rather than making every caller know which generation they are on.
+                # Immediate, not a network retry — a wrong kwarg fails identically
+                # every time, so with_retries below never sees this exception.
+                if "max_completion_tokens" not in str(e):
+                    raise
+                return self._client.complete(
+                    model=self.model, messages=messages,
+                    model_extras={"max_completion_tokens": max_tokens, **extras},
+                )
+
+        r = with_retries(_azure_call)
         u = getattr(r, "usage", None)
         return self._result(
             text=r.choices[0].message.content or "",

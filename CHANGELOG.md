@@ -346,6 +346,28 @@ three worst findings:
   when one is attached and nothing was typed, and Send enables on an
   attachment alone, not just typed text.
 
+### Fixed same-day: transient network failures on embed/chat calls
+
+- Testing the attachment feature turned up a real, reproducible failure:
+  the same embedding call failed once with a raw connection reset
+  (`ConnectionResetError(10054, ...)`, ~21s before giving up) then succeeded
+  in under 3 seconds on the very next attempt, three times in a row — the
+  signature of a transient network blip (this network's corporate
+  proxy/VPN is a likely culprit — see the earlier `example.com` → `127.0.0.1`
+  DNS oddity from the SSRF work), not a real failure, but one that
+  previously surfaced straight to the user as a failed answer.
+- New `app/retry.py::with_retries` — exponential backoff (3 attempts by
+  default), catching broadly rather than matching specific connection-error
+  types (OpenAI/Anthropic/Azure each wrap the same failure in their own
+  SDK's exception classes), with a `non_retryable` escape hatch for
+  exceptions that would fail identically on every attempt
+  (`FoundryUnavailable` from an actual HTTP error response, for instance).
+  Wired into `embeddings.py::Embedder.embed`, every provider branch of
+  `llm.py::LLM.chat`, and `foundry_agent.py::_call` — every network call this
+  app makes to a model or embedding provider. Re-ran the exact failing
+  scenario end to end afterward (real file, real Foundry call) and got a
+  correct, complete answer. 5 tests.
+
 ## Chat console additions (previous session)
 
 Committed as `Add speech-to-text and session persistence to the Chat console`
