@@ -9,6 +9,7 @@ const STORAGE_KEY = 'libra-console-lang'
 const DICT = {
   en: {
     // --- App shell / nav ---
+    'nav.home': 'Home',
     'nav.chat': 'Chat',
     'nav.calculator': 'Calculator',
     'nav.knowledge': 'Knowledge',
@@ -335,6 +336,26 @@ const DICT = {
     'status.generation': 'generation',
     'status.providers': 'providers',
 
+    // --- Home ---
+    'home.welcome': 'Welcome, {name}',
+    'home.description': 'Your dashboard — pick up where you left off, or start something new.',
+    'home.loading': 'Loading…',
+    'home.tileConversations': 'Conversations',
+    'home.tileMessages': 'Messages',
+    'home.tileLastActivity': 'Last activity',
+    'home.never': 'never',
+    'home.justNow': 'just now',
+    'home.minutesAgo': '{n} min ago',
+    'home.hoursAgo': '{n} h ago',
+    'home.daysAgo': '{n} d ago',
+    'home.continueChat': 'Continue your conversation',
+    'home.startChat': 'Start a conversation',
+    'home.untitledConversation': 'Untitled conversation',
+    'home.startChatHint': 'Ask about mortgage products, rates, and eligibility.',
+    'home.openCalculator': 'Mortgage calculator',
+    'home.openCalculatorHint': 'Work out a monthly payment from the corpus\'s own numbers.',
+    'home.adminShortcuts': 'Console shortcuts',
+
     // --- Analytics ---
     'analytics.title': 'Analytics',
     'analytics.description': 'Token usage and estimated cost, aggregated from every saved conversation.',
@@ -368,6 +389,7 @@ const DICT = {
 
   ro: {
     // --- App shell / nav ---
+    'nav.home': 'Acasă',
     'nav.chat': 'Chat',
     'nav.calculator': 'Calculator',
     'nav.knowledge': 'Cunoștințe',
@@ -693,6 +715,26 @@ const DICT = {
     'status.retrieval': 'recuperare',
     'status.generation': 'generare',
     'status.providers': 'provideri',
+
+    // --- Home ---
+    'home.welcome': 'Bun venit, {name}',
+    'home.description': 'Panoul tău — continuă de unde ai rămas, sau începe ceva nou.',
+    'home.loading': 'Se încarcă…',
+    'home.tileConversations': 'Conversații',
+    'home.tileMessages': 'Mesaje',
+    'home.tileLastActivity': 'Ultima activitate',
+    'home.never': 'niciodată',
+    'home.justNow': 'chiar acum',
+    'home.minutesAgo': 'acum {n} min',
+    'home.hoursAgo': 'acum {n} h',
+    'home.daysAgo': 'acum {n} z',
+    'home.continueChat': 'Continuă conversația',
+    'home.startChat': 'Începe o conversație',
+    'home.untitledConversation': 'Conversație fără titlu',
+    'home.startChatHint': 'Întreabă despre produse ipotecare, dobânzi și eligibilitate.',
+    'home.openCalculator': 'Calculator de credit ipotecar',
+    'home.openCalculatorHint': 'Calculează o rată lunară cu cifrele din corpus.',
+    'home.adminShortcuts': 'Comenzi rapide consolă',
 
     // --- Analytics ---
     'analytics.title': 'Analiză',

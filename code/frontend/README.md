@@ -6,7 +6,8 @@ the pipeline, each able to reveal its own raw JSON.
 
 | Screen | Shows | Endpoints |
 |---|---|---|
-| **Chat** | The assistant: persona switch, RAG toggle, local/Foundry lane, temperature and top-K, fact-check, retrieved passages with scores, the exact prompt sent, a mic button to speak the question instead of typing it, per-conversation history saved to disk, and Markdown/JSON export | `/ask`, `/tools/transcribe`, `/sessions/*` |
+| **Home** | The landing page after login: conversation/message counts and last-activity time, a card to resume the most recent conversation (or start one), a card to the calculator, and — console/admin only — shortcut buttons to every other screen | `/sessions` |
+| **Chat** | The assistant: persona switch, RAG toggle, local/Foundry lane, temperature and top-K, fact-check, retrieved passages with scores, the exact prompt sent, a mic button to speak the question instead of typing it, an attach-a-document button, per-conversation history saved to disk, and Markdown/JSON export | `/ask`, `/tools/transcribe`, `/tools/extract-document`, `/sessions/*` |
 | **Knowledge** | Paste a document, compare the four chunking strategies, then embed and store | `/chunk`, `/ingest`, `/collection` |
 | **Retrieval** | A query, its embedding, and the ranked hits with cosine scores | `/search` |
 | **Agents** | Every agent and **where it can run**, the system prompt its JSON produces, deploy/remove in Foundry | `/agents`, `/agents/{name}/deploy`, `/agents/hosted` |

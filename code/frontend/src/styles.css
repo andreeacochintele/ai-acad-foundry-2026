@@ -127,6 +127,17 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
 
+/* Home dashboard */
+.home-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+@media (max-width: 700px) { .home-actions { grid-template-columns: 1fr; } }
+.home-action-card { text-align: left; cursor: pointer; border: 1px solid var(--border);
+  transition: border-color .15s ease, transform .15s ease; }
+.home-action-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.home-action-card h3 { margin: 0 0 .3rem; color: var(--accent); }
+.home-action-card p { margin: 0; }
+.home-shortcut-grid { display: flex; flex-wrap: wrap; gap: .5rem; }
+.home-shortcut { display: inline-flex; align-items: center; gap: .45rem; }
+
 /* Single-series bar chart (Analytics) — one hue, the console's own accent;
    category identity comes from the row label, not a legend. */
 .bar-chart { display: flex; flex-direction: column; gap: .5rem; }

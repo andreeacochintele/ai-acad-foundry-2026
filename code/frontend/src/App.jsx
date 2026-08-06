@@ -6,6 +6,7 @@ import Agents from './views/Agents'
 import Analytics from './views/Analytics'
 import Calculator from './views/Calculator'
 import Chat from './views/Chat'
+import Home from './views/Home'
 import Knowledge from './views/Knowledge'
 import Login from './views/Login'
 import Search from './views/Search'
@@ -18,6 +19,7 @@ import Tools from './views/Tools'
 // (chunking internals, retrieval scores, agent management, raw tool calls,
 // system health) are console/internal-only.
 const VIEWS = [
+  { id: 'home', label: 'nav.home', group: 'Assistant', clientVisible: true },
   { id: 'chat', label: 'nav.chat', group: 'Assistant', clientVisible: true },
   { id: 'calculator', label: 'nav.calculator', group: 'Assistant', clientVisible: true },
   { id: 'knowledge', label: 'nav.knowledge', group: 'Pipeline' },
@@ -91,7 +93,7 @@ function Icon({ name, className }) {
 
 export default function App() {
   const { lang, setLang, t } = useLanguage()
-  const [view, setView] = useState('chat')
+  const [view, setView] = useState('home')
   const [agents, setAgents] = useState([])
   const [hostedOnly, setHostedOnly] = useState([])
   const [foundry, setFoundry] = useState(null)
@@ -117,6 +119,7 @@ export default function App() {
   function login(s) {
     try { localStorage.setItem(SESSION_KEY, JSON.stringify(s)) } catch { /* storage unavailable */ }
     setSession(s)
+    setView('home')   // land on the dashboard, not wherever a previous session left off
     if (s.role === 'user') setUiMode('client')
   }
   function logout() {
@@ -163,7 +166,7 @@ export default function App() {
 
   const visibleViews = effectiveIsClient ? VIEWS.filter((v) => v.clientVisible) : VIEWS
   useEffect(() => {
-    if (!visibleViews.some((v) => v.id === view)) setView('chat')
+    if (!visibleViews.some((v) => v.id === view)) setView('home')
   }, [effectiveIsClient])   // eslint-disable-line react-hooks/exhaustive-deps
 
   const groups = [...new Set(visibleViews.map((v) => v.group))]
@@ -252,6 +255,7 @@ export default function App() {
       </div>
 
       <main className="main">
+        {view === 'home' && <Home session={session} setView={setView} clientMode={effectiveIsClient} />}
         {view === 'chat' && <Chat agents={agents} hostedOnly={hostedOnly} foundry={foundry} clientMode={effectiveIsClient} session={session} />}
         {view === 'calculator' && <Calculator />}
         {view === 'knowledge' && <Knowledge />}

@@ -368,6 +368,24 @@ three worst findings:
   scenario end to end afterward (real file, real Foundry call) and got a
   correct, complete answer. 5 tests.
 
+### Home dashboard — login no longer drops you straight into Chat
+
+- New **Home** screen (`views/Home.jsx`), first in the nav and the default
+  view after login (`App.jsx`'s `login()` now resets `view` explicitly, so
+  a fresh login always lands there regardless of what a previous session
+  left the nav on). Stat tiles for conversation count, message count, and
+  last-activity time — reads the same owner-scoped `GET /sessions` the Chat
+  history sidebar already uses, no new backend endpoint.
+- Two big action cards: continue the most recent conversation (or start one
+  if there isn't one yet) and open the mortgage calculator — both just
+  `setView(...)`, so Chat's own "resume the most recently updated
+  conversation" logic does the rest.
+- Console/admin view only: a row of shortcut buttons to every other screen
+  (Knowledge, Retrieval, Agents, Tools, Status, Analytics), generated from a
+  fixed icon map keyed the same as `App.jsx`'s `VIEWS` ids, so adding a
+  screen there doesn't silently leave this list stale — hidden entirely in
+  client mode, same as those screens already are in the main nav.
+
 ## Chat console additions (previous session)
 
 Committed as `Add speech-to-text and session persistence to the Chat console`
