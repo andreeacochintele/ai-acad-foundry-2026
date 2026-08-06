@@ -266,6 +266,7 @@ def run(
     chunks: list[dict] | None = None,
     agent_id: str | None = None,
     history: list[dict] | None = None,
+    attached_document: str | None = None,
 ) -> AgentReply:
     """Invoke the hosted agent for this persona.
 
@@ -282,14 +283,16 @@ def run(
             f"`python scripts/deploy_agent.py {persona.name}`."
         )
     return _run_thread(agent_id, persona.name, question, chunks or [],
-                       temperature=persona.temperature, history=history)
+                       temperature=persona.temperature, history=history,
+                       attached_document=attached_document)
 
 
 def run_hosted(agent: dict, question: str, chunks: list[dict] | None = None,
-              history: list[dict] | None = None) -> AgentReply:
+              history: list[dict] | None = None, attached_document: str | None = None) -> AgentReply:
     """Invoke a hosted agent that has no local persona file — its instructions
     live in Foundry, so there is nothing to compose on our side."""
-    return _run_thread(agent["agent_id"], agent["name"], question, chunks or [], history=history)
+    return _run_thread(agent["agent_id"], agent["name"], question, chunks or [], history=history,
+                       attached_document=attached_document)
 
 
 def _run_and_wait(thread_id: str, run_body: dict) -> dict:
@@ -309,7 +312,8 @@ def _run_and_wait(thread_id: str, run_body: dict) -> dict:
 
 
 def _run_thread(agent_id: str, persona_name: str, question: str, chunks: list[dict],
-                temperature: float | None = None, history: list[dict] | None = None) -> AgentReply:
+                temperature: float | None = None, history: list[dict] | None = None,
+                attached_document: str | None = None) -> AgentReply:
     """The Agent Service protocol, in four calls.
 
     A fresh thread is opened every call — the Agent Service has no notion of
@@ -317,7 +321,7 @@ def _run_thread(agent_id: str, persona_name: str, question: str, chunks: list[di
     per console conversation. Simpler and consistent with local_agent.py: fold
     prior turns into the user message as a transcript, same as the local lane.
     """
-    user = build_user_prompt(question, chunks, history)
+    user = build_user_prompt(question, chunks, history, attached_document)
 
     thread = _call("POST", "threads", {})                                    # 1 open
     thread_id = thread["id"]

@@ -26,14 +26,14 @@ from .logging_config import configure_logging
 from .ratelimit import rate_limit
 from .schemas import (
     AgentInfo, AgentListResponse, AskRequest, AskResponse, AzureDeployment, AzureDeployments,
-    AzureStatus, ChunkInfo, ChunkRequest, ChunkResponse, CollectionInfo, FoundryAvailability,
-    Health, HostedAgent, IngestRequest, IngestResponse, PersonaSummary, ScrapeRequest,
-    ScrapeResponse, SearchHit, SearchRequest, SearchResponse, SessionSave, SpeakRequest,
-    TranscribeResponse, Usage, WebSearchHit, WebSearchRequest, WebSearchResponse,
+    AzureStatus, ChunkInfo, ChunkRequest, ChunkResponse, CollectionInfo, DocumentExtractResponse,
+    FoundryAvailability, Health, HostedAgent, IngestRequest, IngestResponse, PersonaSummary,
+    ScrapeRequest, ScrapeResponse, SearchHit, SearchRequest, SearchResponse, SessionSave,
+    SpeakRequest, TranscribeResponse, Usage, WebSearchHit, WebSearchRequest, WebSearchResponse,
     FactCheckRequest, FactCheckResponse, FactCheckSource, FactCheckVerdict,
     AzureSearchQueryRequest, AzureSearchSyncRequest,
 )
-from .services import aisearch, speech, web
+from .services import aisearch, documents, speech, web
 from .sessions import InvalidSessionId, SessionNotFound
 from .vectorstore import DimensionMismatch, VectorStore
 
@@ -126,6 +126,26 @@ def _require_qdrant() -> None:
             detail=f"Qdrant is not reachable at {settings.qdrant_url} — "
                    f"start it with: docker compose up qdrant -d",
         )
+
+
+async def _read_upload_limited(file: UploadFile) -> bytes:
+    """Read `file` in chunks, refusing anything over MAX_UPLOAD_MB instead of
+    buffering an unbounded amount into memory with a bare `await file.read()`."""
+    max_bytes = settings.max_upload_mb * 1024 * 1024
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(1024 * 1024)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > max_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large — over {settings.max_upload_mb} MB.",
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 def _visible_hosted_names() -> set[str]:
@@ -456,11 +476,14 @@ def ask(req: AskRequest) -> AskResponse:
     # ---- run the agent ------------------------------------------------------
     try:
         if hosted_only is not None:
-            reply = foundry_agent.run_hosted(hosted_only, req.question, chunks, history=history)
+            reply = foundry_agent.run_hosted(hosted_only, req.question, chunks, history=history,
+                                             attached_document=req.attached_document)
         elif mode == "foundry":
-            reply = foundry_agent.run(persona, req.question, chunks, history=history)
+            reply = foundry_agent.run(persona, req.question, chunks, history=history,
+                                      attached_document=req.attached_document)
         else:
-            reply = local_agent.run(persona, req.question, chunks, temperature=req.temperature, history=history)
+            reply = local_agent.run(persona, req.question, chunks, temperature=req.temperature,
+                                    history=history, attached_document=req.attached_document)
     except foundry_agent.FoundryUnavailable as e:
         raise HTTPException(status_code=503, detail=str(e))
     except GuardrailViolation as e:
@@ -946,7 +969,7 @@ async def transcribe(file: UploadFile = File(..., description="WAV, 16 kHz mono,
                      language: str | None = Form(None, description="e.g. en-US, ro-RO — must match the spoken language or recognition garbles")):
     """Speech → text (Azure AI Speech). Upload the WAV you just generated and
     watch it come back as text — the round trip in two calls."""
-    audio = await file.read()
+    audio = await _read_upload_limited(file)
     if not audio:
         raise HTTPException(status_code=422, detail="The uploaded file is empty.")
     try:
@@ -956,6 +979,26 @@ async def transcribe(file: UploadFile = File(..., description="WAV, 16 kHz mono,
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Transcription failed: {e}")
     return TranscribeResponse(**result)
+
+
+@app.post("/tools/extract-document", response_model=DocumentExtractResponse, tags=["6 · tools"],
+          dependencies=[Depends(rate_limit)])
+async def extract_document(file: UploadFile = File(..., description="txt, md, pdf, or docx")):
+    """Extract plain text from a file so it can be attached to one
+    conversation (see `AskRequest.attached_document`) — never added to the
+    persistent knowledge base. Read the `warnings` array: a scanned/image-only
+    PDF, for instance, yields no text and says so rather than failing silently.
+    """
+    content = await _read_upload_limited(file)
+    if not content:
+        raise HTTPException(status_code=422, detail="The uploaded file is empty.")
+    try:
+        result = documents.extract_text(file.filename or "upload", content)
+    except documents.UnsupportedDocumentType as e:
+        raise HTTPException(status_code=415, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not extract text: {e}")
+    return DocumentExtractResponse(**result.__dict__)
 
 
 # --- sessions -------------------------------------------------------------

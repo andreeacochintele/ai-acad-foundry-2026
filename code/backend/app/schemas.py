@@ -185,6 +185,13 @@ class AskRequest(BaseModel):
     dedupe: Optional[bool] = Field(False, description="Drop near-duplicate retrieved chunks")
     rewrite_query: Optional[bool] = Field(False, description="Rewrite the question into a cleaner search query before embedding")
 
+    attached_document: Optional[str] = Field(
+        None, max_length=20_000,
+        description="Text extracted from a file attached to this conversation "
+                    "(see POST /tools/extract-document) — included as context for "
+                    "this question only, never added to the persistent knowledge base.",
+    )
+
 
 class AgentInfo(BaseModel):
     name: str
@@ -331,6 +338,15 @@ class ScrapeResponse(BaseModel):
     approx_tokens: int
     warnings: list[str] = Field(description="Everything the naive approach could not handle")
     stats: dict
+
+
+class DocumentExtractResponse(BaseModel):
+    filename: str
+    file_type: str
+    text: str
+    chars: int
+    approx_tokens: int
+    warnings: list[str] = Field(description="e.g. a scanned/image-only PDF with no extractable text")
 
 
 class WebSearchRequest(BaseModel):

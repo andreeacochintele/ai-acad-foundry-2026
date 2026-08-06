@@ -308,6 +308,37 @@ three worst findings:
   `!.env.example` exception, so any future accidental copy is caught by
   pattern rather than by having to list every name someone might type.
 
+### Attach a document to a conversation
+
+- New "📎 attach" button in the Chat composer (both roles — `user` and
+  `admin`) lets you upload a `.txt`/`.md`/`.pdf`/`.docx` file; the extracted
+  text becomes context for every question in that conversation until you
+  remove it, without ever touching the persistent knowledge base (no Qdrant
+  write happens at all).
+- `POST /tools/extract-document` (`app/services/documents.py`) does the
+  extraction — pypdf for PDF, python-docx for DOCX, plain decode for
+  txt/md — and is honest the same way `/tools/web-fetch` already is: a
+  scanned/image-only PDF yields no text and says so in `warnings` rather
+  than failing silently or pretending OCR happened.
+- New `AskRequest.attached_document` field carries the extracted text
+  through to the prompt. `local_agent.build_user_prompt` gives it its own
+  labelled block, separate from RAG's `CONTEXT` section — it wasn't
+  retrieved by similarity search, so it doesn't get a fake score, and
+  `foundry_agent.py`'s hosted-agent path threads it through the same way.
+- Raised the guardrails' `MAX_INPUT_CHARS` (8,000 → 40,000): that check runs
+  on the *fully composed* prompt (question + chunks + history +
+  attachment), and a 20k-char document alone would have blown past the old
+  limit that was sized only for a bare question.
+- Retrofitted a `MAX_UPLOAD_MB` size limit (both this endpoint and
+  `/tools/transcribe`, which never had one) — a known gap from the earlier
+  security audit, closed while adding a second upload endpoint made it
+  worth doing properly for both at once. 13 new tests (8 extraction, 5
+  prompt composition).
+- Not persisted anywhere — no new field on the session schema, kept as
+  in-memory-only React state — so it resets on reload. Attaching again is
+  one click; that kept the persistence model simple instead of adding a
+  field to keep in sync between `.env`-free local state and saved sessions.
+
 ## Chat console additions (previous session)
 
 Committed as `Add speech-to-text and session persistence to the Chat console`

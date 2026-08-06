@@ -320,10 +320,20 @@ security boundary against a determined attacker.
 ## Tools (specialist services)
 
 ```bash
-POST /tools/web-fetch    # a deliberately plain scraper — read its `warnings` array
-POST /tools/speak        # text → WAV (Azure AI Speech; needs AZURE_SPEECH_KEY/REGION)
-POST /tools/transcribe   # upload audio → text (WAV, or a browser recording — see below)
+POST /tools/web-fetch         # a deliberately plain scraper — read its `warnings` array
+POST /tools/speak             # text → WAV (Azure AI Speech; needs AZURE_SPEECH_KEY/REGION)
+POST /tools/transcribe        # upload audio → text (WAV, or a browser recording — see below)
+POST /tools/extract-document  # upload txt/md/pdf/docx → text, for attaching to one conversation
 ```
+
+`/tools/extract-document` (`app/services/documents.py`) never touches Qdrant or the
+persistent knowledge base — the extracted text is only ever passed back to the caller,
+who attaches it to a single `/ask` call via `AskRequest.attached_document`. PDF via
+`pypdf`, DOCX via `python-docx`, txt/md as a plain decode; a scanned/image-only PDF
+yields no text and says so in `warnings`, the same honesty `/tools/web-fetch` already
+practices about what a plain extractor cannot do (no OCR here either). Both this
+endpoint and `/tools/transcribe` cap the upload at `MAX_UPLOAD_MB` (15 by default),
+read in chunks rather than buffered in one `await file.read()`.
 
 `/tools/transcribe` accepts a plain 16 kHz mono WAV (the Tools view's generate/upload
 demo) **or** a compressed recording straight off a browser's `MediaRecorder` —

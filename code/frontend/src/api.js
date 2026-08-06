@@ -64,4 +64,16 @@ export const api = {
     }
     return response.json()
   },
+  extractDocument: async (file) => {
+    const form = new FormData()
+    form.append('file', file)
+    const response = await fetch('/tools/extract-document', { method: 'POST', body: form })
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      const err = new Error(data.detail || `HTTP ${response.status}`)
+      err.status = response.status
+      throw err
+    }
+    return response.json()
+  },
 }

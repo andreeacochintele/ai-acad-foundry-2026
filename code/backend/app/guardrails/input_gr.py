@@ -8,7 +8,13 @@ from __future__ import annotations
 
 import re
 
-MAX_INPUT_CHARS = 8000
+# check_input() runs on the FULLY composed prompt (question + retrieved chunks
+# + history + an attached document — see local_agent.build_user_prompt), not
+# just the raw question, which already has its own max_length=8000 at the API
+# boundary (schemas.AskRequest). This cap needs headroom for all of that
+# combined — a 20k-char attached document alone would blow past a tighter
+# limit set only with a bare question in mind.
+MAX_INPUT_CHARS = 40000
 
 # Heuristic phrasing used to try to override the system prompt. Regex over an
 # LLM call is cheap and catches the common cases; it will never be complete,

@@ -77,11 +77,19 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
   const [micState, setMicState] = useState('idle')   // idle | recording | transcribing
   const [micLang, setMicLang] = useState('ro-RO')
   const [settingsOpen, setSettingsOpen] = useState(false)
+  // conversation id -> {filename, file_type, text, chars, warnings} — a document
+  // attached for this conversation only, never added to the knowledge base.
+  // Kept in memory only (not saved to a session or localStorage), so it's gone
+  // on reload — attaching again is one click, and that keeps the persistence
+  // model simple (no new field on the session schema to keep in sync).
+  const [attachedDocs, setAttachedDocs] = useState({})
+  const [attaching, setAttaching] = useState(false)
   const endRef = useRef(null)
   const audioRef = useRef(null)
   const settingsRef = useRef(null)
   const recorderRef = useRef(null)
   const chunksRef = useRef([])
+  const fileInputRef = useRef(null)
 
   useEffect(() => () => audioRef.current?.pause(), [])
   useEffect(() => () => recorderRef.current?.stream?.getTracks().forEach((tr) => tr.stop()), [])
@@ -272,8 +280,32 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
 
   const activeConv = conversations.find((c) => c.id === activeId) || conversations[0]
   const { messages, agent, useRag, mode } = activeConv
+  const attachedDoc = attachedDocs[activeId] || null
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, busy])
+
+  async function handleAttachFile(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''   // so picking the same file again still fires onChange
+    if (!file) return
+    setAttaching(true); setError(null)
+    try {
+      const result = await api.extractDocument(file)
+      setAttachedDocs((docs) => ({ ...docs, [activeId]: result }))
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setAttaching(false)
+    }
+  }
+
+  function removeAttachedDoc() {
+    setAttachedDocs((docs) => {
+      const next = { ...docs }
+      delete next[activeId]
+      return next
+    })
+  }
 
   function patchConversation(id, patcher) {
     let merged = null
@@ -394,7 +426,8 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
     try {
       const data = await api.ask({ question: text, history, use_rag: useRag, top_k: Number(topK),
                                   temperature: Number(temperature),
-                                  agent, agent_mode: mode, fact_check: factCheck })
+                                  agent, agent_mode: mode, fact_check: factCheck,
+                                  attached_document: attachedDoc?.text || undefined })
       patchConversation(convId, (c) => ({ messages: [...c.messages, { role: 'bot', data }] }))
     } catch (e) {
       patchConversation(convId, (c) => ({ messages: [...c.messages, { role: 'err', text: e.message }] }))
@@ -678,7 +711,34 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
         </div>
 
         <Err error={error} />
+        {attachedDoc && (
+          <div className="attachment-chip">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+                 strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M21.44 11.05 12.25 20.24a5 5 0 0 1-7.07-7.07l8.49-8.49a3.5 3.5 0 0 1 4.95 4.95l-8.49 8.49a2 2 0 0 1-2.83-2.83l7.78-7.78" />
+            </svg>
+            <span className="attachment-chip-name" title={attachedDoc.filename}>{attachedDoc.filename}</span>
+            <span className="faint">{t('chat.attachmentChars', { n: attachedDoc.chars })}</span>
+            {attachedDoc.warnings?.length > 0 && (
+              <span className="badge gold" title={attachedDoc.warnings.join(' ')}>{t('chat.attachmentWarning')}</span>
+            )}
+            <button type="button" className="attachment-chip-remove" onClick={removeAttachedDoc}
+                    title={t('chat.removeAttachment')} aria-label={t('chat.removeAttachment')}>×</button>
+          </div>
+        )}
         <div className="composer">
+          <input type="file" ref={fileInputRef} style={{ display: 'none' }}
+                 accept=".txt,.md,.pdf,.docx" onChange={handleAttachFile} />
+          <button type="button" className="btn btn-outline attach-btn" disabled={attaching || busy}
+                  onClick={() => fileInputRef.current?.click()}
+                  title={t('chat.attachDocument')} aria-label={t('chat.attachDocument')}>
+            {attaching ? <span className="spin" /> : (
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+                   strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21.44 11.05 12.25 20.24a5 5 0 0 1-7.07-7.07l8.49-8.49a3.5 3.5 0 0 1 4.95 4.95l-8.49 8.49a2 2 0 0 1-2.83-2.83l7.78-7.78" />
+              </svg>
+            )}
+          </button>
           {typeof window !== 'undefined' && window.MediaRecorder && (
             <button type="button" className={`btn btn-outline mic-btn ${micState}`} onClick={toggleRecording}
                     disabled={micState === 'transcribing' || busy}

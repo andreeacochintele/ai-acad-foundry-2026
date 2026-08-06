@@ -59,6 +59,22 @@ Needs `AZURE_SPEECH_KEY`/`AZURE_SPEECH_REGION` (or a Foundry AIServices resource
 configured on the backend, and microphone permission in the browser; the mic button
 hides itself entirely if `MediaRecorder` isn't available.
 
+## Attaching a document (Chat 📎 button)
+
+Visible to both `admin` and `user` roles. Pick a `.txt`, `.md`, `.pdf`, or `.docx`
+file and the console uploads it to `POST /tools/extract-document`, gets back
+extracted text, and shows it as a chip above the composer with a character count
+and a remove (×) button. From then on, every question you send *in that
+conversation* includes the attached text as context — until you remove it or start
+a new conversation.
+
+This is separate from the knowledge base entirely: nothing gets ingested into
+Qdrant, so it never affects anyone else's answers, and it isn't saved with the
+conversation — it lives only in the browser tab's memory, so reattaching after a
+reload is one click. If the file yields a `warnings` entry (a scanned PDF with no
+extractable text, for instance) the chip shows a small "partial extraction" badge
+you can hover for the detail.
+
 ## Where an agent can run
 
 The Agents screen answers this with a badge on every row:

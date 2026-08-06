@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     rate_limit_enabled: bool = True
     rate_limit_per_minute: int = 20
 
+    # --- uploads -------------------------------------------------------------
+    # /tools/transcribe (audio) and /tools/extract-document (attached files)
+    # both read a whole upload into memory — capped so a huge file can't
+    # exhaust it.
+    max_upload_mb: int = 15
+
     # --- provider selection --------------------------------------------------
     llm_provider: str = "openai"            # lmstudio | openai | anthropic | azure
     embedding_provider: str = "openai"      # lmstudio | openai | azure  (Anthropic has no embeddings API)

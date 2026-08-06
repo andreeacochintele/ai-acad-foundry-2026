@@ -30,7 +30,8 @@ class AgentReply:
     completion_tokens: int | None = None
 
 
-def build_user_prompt(question: str, chunks: list[dict], history: list[dict] | None = None) -> str:
+def build_user_prompt(question: str, chunks: list[dict], history: list[dict] | None = None,
+                      attached_document: str | None = None) -> str:
     """Question alone, question + retrieved passages, and/or prior turns.
 
     The backend keeps no session state (see app/sessions.py's docstring) — a
@@ -39,8 +40,13 @@ def build_user_prompt(question: str, chunks: list[dict], history: list[dict] | N
     new question, rather than as a real multi-message array. That keeps every
     LLM provider branch in app/llm.py untouched: one system + one user string,
     same as a single-turn call, just with more said in the user string.
+
+    `attached_document` (see AskRequest) is kept in its own labelled block,
+    separate from `chunks` — it wasn't retrieved by similarity search, so it
+    has no score, and folding it into CONTEXT would misrepresent it as one
+    more ranked passage instead of the whole file the user actually attached.
     """
-    if not chunks and not history:
+    if not chunks and not history and not attached_document:
         return question
     parts = []
     if history:
@@ -48,6 +54,9 @@ def build_user_prompt(question: str, chunks: list[dict], history: list[dict] | N
             f"{'User' if h['role'] == 'user' else 'Assistant'}: {h['text']}" for h in history
         )
         parts.append(f"PRIOR CONVERSATION — for context, oldest first:\n{transcript}")
+    if attached_document:
+        parts.append(f"ATTACHED DOCUMENT — provided by the user for this conversation only, "
+                     f"not part of the knowledge base:\n{attached_document}")
     if chunks:
         context = "\n\n".join(
             f"[{i + 1}] (score {c['score']}) {c['text']}" for i, c in enumerate(chunks)
@@ -63,10 +72,11 @@ def run(
     chunks: list[dict] | None = None,
     temperature: float | None = None,
     history: list[dict] | None = None,
+    attached_document: str | None = None,
 ) -> AgentReply:
     chunks = chunks or []
-    system = persona.system_prompt(grounded=bool(chunks))
-    user = build_user_prompt(question, chunks, history)
+    system = persona.system_prompt(grounded=bool(chunks) or bool(attached_document))
+    user = build_user_prompt(question, chunks, history, attached_document)
 
     # precedence: explicit request value > persona file > .env default
     temp = temperature if temperature is not None else (
