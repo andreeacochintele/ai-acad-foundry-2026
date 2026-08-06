@@ -257,7 +257,7 @@ export default function App() {
         {view === 'knowledge' && <Knowledge />}
         {view === 'search' && <Search />}
         {view === 'agents' && <Agents agents={agents} hostedOnly={hostedOnly} foundry={foundry}
-                                      reload={loadAgents} azure={azure} />}
+                                      reload={loadAgents} azure={azure} session={session} />}
         {view === 'tools' && <Tools />}
         {view === 'status' && <Status health={health} reload={loadHealth}
                                       azure={azure} reloadAzure={loadAzure} />}

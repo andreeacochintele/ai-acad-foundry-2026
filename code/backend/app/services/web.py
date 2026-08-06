@@ -14,7 +14,9 @@ maintaining scrapers.
 from __future__ import annotations
 
 import html
+import ipaddress
 import re
+import socket
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from urllib.parse import parse_qs, unquote, urlparse
@@ -39,6 +41,42 @@ SEARCH_USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.
 
 class WebSearchBlocked(Exception):
     """The engine returned a challenge page rather than results."""
+
+
+class UnsafeURL(Exception):
+    """`scrape()` refused a URL that resolves to something other than the
+    public internet — an SSRF guard, not a fetch failure."""
+
+
+_ALLOWED_SCHEMES = {"http", "https"}
+
+
+def _reject_if_unsafe(url: str) -> None:
+    """Raise UnsafeURL if `url` isn't a plain http(s) address resolving to a
+    public IP. Called before the first request AND before every redirect hop
+    scrape() follows — otherwise a URL that looks external at first glance
+    could 302 to http://169.254.169.254/ (cloud metadata) or an internal
+    service (http://qdrant:6333, http://api:7799) and this scraper would
+    fetch it and hand the response back to whoever asked. This narrows but
+    does not close every gap: a hostname could still resolve differently
+    between this check and the actual connection (DNS rebinding) — accepted
+    as a known residual limitation of a plain-httpx scraper, not solved here.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme not in _ALLOWED_SCHEMES:
+        raise UnsafeURL(f"scheme '{parsed.scheme or '(none)'}' is not allowed — only http/https")
+    host = parsed.hostname
+    if not host:
+        raise UnsafeURL("URL has no host")
+    try:
+        resolved = socket.getaddrinfo(host, None)
+    except socket.gaierror as e:
+        raise UnsafeURL(f"could not resolve host '{host}': {e}")
+    for family, _, _, _, sockaddr in resolved:
+        ip = ipaddress.ip_address(sockaddr[0])
+        if (ip.is_private or ip.is_loopback or ip.is_link_local
+                or ip.is_reserved or ip.is_multicast or ip.is_unspecified):
+            raise UnsafeURL(f"'{host}' resolves to {ip}, an internal/reserved address")
 
 
 class _TextExtractor(HTMLParser):
@@ -238,13 +276,27 @@ class ScrapeResult:
     stats: dict = field(default_factory=dict)
 
 
-def scrape(url: str, timeout: float = 10.0, max_chars: int = 20000) -> ScrapeResult:
+def scrape(url: str, timeout: float = 10.0, max_chars: int = 20000,
+           max_redirects: int = 5) -> ScrapeResult:
     if not urlparse(url).scheme:
         url = "https://" + url
+    _reject_if_unsafe(url)
 
-    with httpx.Client(follow_redirects=True, timeout=timeout,
+    # Redirects are followed manually (not httpx's follow_redirects=True) so
+    # every hop gets the same safety check as the URL the caller typed —
+    # otherwise an SSRF guard on just the first URL is trivially bypassed
+    # with a 302 to an internal address.
+    with httpx.Client(follow_redirects=False, timeout=timeout,
                       headers={"User-Agent": USER_AGENT}) as client:
         response = client.get(url)
+        hops = 0
+        while response.is_redirect and response.next_request is not None:
+            if hops >= max_redirects:
+                raise UnsafeURL(f"more than {max_redirects} redirects")
+            next_url = str(response.next_request.url)
+            _reject_if_unsafe(next_url)
+            response = client.send(response.next_request)
+            hops += 1
 
     warnings: list[str] = []
     content_type = response.headers.get("content-type", "")

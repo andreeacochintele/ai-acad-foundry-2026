@@ -35,9 +35,9 @@ export const api = {
 
   agents: () => request('/agents'),
   agent: (name) => request(`/agents/${encodeURIComponent(name)}`),
-  deployAgent: (name) => request(`/agents/${encodeURIComponent(name)}/deploy`, { method: 'POST' }),
-  hostedAgents: () => request('/agents/hosted'),
-  deleteHostedAgent: (id) => request(`/agents/hosted/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  deployAgent: (name, owner) => request(`/agents/${encodeURIComponent(name)}/deploy${owner ? `?owner=${encodeURIComponent(owner)}` : ''}`, { method: 'POST' }),
+  hostedAgents: (owner) => request(owner ? `/agents/hosted?owner=${encodeURIComponent(owner)}` : '/agents/hosted'),
+  deleteHostedAgent: (id, owner) => request(`/agents/hosted/${encodeURIComponent(id)}${owner ? `?owner=${encodeURIComponent(owner)}` : ''}`, { method: 'DELETE' }),
 
   azure: () => request('/azure'),
 

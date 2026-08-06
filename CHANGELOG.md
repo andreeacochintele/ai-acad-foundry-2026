@@ -272,6 +272,42 @@ Uncommitted — everything below is new working-tree state on top of `68ad027`.
   mismatch; omitting it keeps the old unscoped behaviour, and the console
   itself now passes its own `ownerKey` on delete. 6 tests.
 
+### Security audit findings, fixed
+
+Ran a security audit (background agent) over the whole app and fixed the
+three worst findings:
+
+- **SSRF in `/tools/web-fetch` and `/tools/fact-check`** — `services/web.py`'s
+  `scrape()` would fetch any URL a caller supplied with no check at all, so
+  it could be pointed at `169.254.169.254` (cloud instance metadata),
+  `127.0.0.1`, or an internal service (`http://qdrant:6333`) and hand the
+  response back. New `_reject_if_unsafe()` resolves the hostname and blocks
+  private/loopback/link-local/reserved/multicast destinations and non-http(s)
+  schemes — checked before the initial request **and before every redirect
+  hop** `scrape()` follows (redirects are now followed manually, not via
+  `httpx`'s `follow_redirects=True`), since a guard on only the first URL is
+  trivially bypassed with a 302. `/tools/web-fetch` also gained the rate
+  limiting every sibling tool endpoint already had but it was missing. 10
+  tests, using IP-literal URLs so none of them touch the network.
+- **No ownership check on the shared Foundry project's hosted agents** —
+  `GET /agents/hosted` enumerated every agent in the class-wide Foundry
+  project (not just yours), and `DELETE /agents/hosted/{id}` / the deploy
+  endpoint had no check that stopped you deleting or overwriting a
+  classmate's agent once you had (or guessed) its id. `foundry_agent.deploy`
+  now stamps a new agent's Foundry metadata with `created_by` (the caller's
+  login identity); `main.py`'s new `_may_access_hosted()` requires that
+  stamp to match for anything created through this console, falling back to
+  the existing local-persona/`FOUNDRY_VISIBLE_EXTRA` visibility rule for
+  agents made before this existed (CLI/portal). Applied consistently to the
+  list, delete, and deploy-collision paths. Like the rest of this console's
+  `owner` field, the stamp is a self-declared string, not real
+  authentication — this closes the *default wide-open* state, not a hard
+  security boundary. 5 tests.
+- **`.envcopy.txt` sitting uncovered by `.gitignore`** — the existing `.env`
+  entry didn't match that filename at all. Replaced it with `.env*` plus a
+  `!.env.example` exception, so any future accidental copy is caught by
+  pattern rather than by having to list every name someone might type.
+
 ## Chat console additions (previous session)
 
 Committed as `Add speech-to-text and session persistence to the Chat console`

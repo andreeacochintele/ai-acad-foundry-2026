@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { Err, RunsOnBadge } from '../components'
 import { useLanguage } from '../i18n.jsx'
+import { ownerKeyFor } from '../ownerKey'
 
 // The wire shape is snake_case (matching the rest of the API, e.g. use_rag on
 // /ask) — these two functions are the only place that boundary is crossed.
@@ -12,15 +13,6 @@ function toWire(c, ownerKey) {
   }
 }
 
-// A "user" login and an "admin" login (or two different names) each get their
-// own bucket, both in the backend's /sessions list and in the localStorage
-// mirror — otherwise one login's history shows up in the other's sidebar,
-// whether that's two people sharing a deployed backend or one person
-// switching roles in the same browser.
-function ownerKeyFor(session) {
-  if (!session?.name) return ''
-  return `${session.name.trim().toLowerCase()}::${session.role || 'user'}`
-}
 const DEFAULT_AGENT = 'andreea-cochintele-credit-specialist'
 
 function fromWire(r) {

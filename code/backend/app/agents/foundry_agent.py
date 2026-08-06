@@ -187,6 +187,11 @@ def list_hosted() -> list[dict]:
             "description": a.get("description"),
             "created_at": a.get("created_at"),
             "instructions_preview": instructions[:300],
+            # Set on creation (see deploy()) from the caller's login identity —
+            # a self-declared string, same as everywhere else in this console
+            # that isn't backed by real authentication. Absent on agents made
+            # before this existed, or from the CLI/portal directly.
+            "created_by": (a.get("metadata") or {}).get("created_by"),
         })
     return out
 
@@ -203,12 +208,18 @@ def delete_hosted(agent_id: str) -> bool:
     return True
 
 
-def deploy(persona: Persona, model: str | None = None) -> dict:
+def deploy(persona: Persona, model: str | None = None, created_by: str | None = None) -> dict:
     """Create (or update) the hosted agent from a persona file. Returns its id.
 
     Run this once per persona — or after editing the JSON — via
     `python scripts/deploy_agent.py <persona>`, POST /agents/{name}/deploy, or
     scripts/azure/03-create-agent.
+
+    `created_by`, when given, is stamped into the new agent's metadata (only
+    on creation — an update leaves the original creator's stamp alone) so a
+    later delete/overwrite can be checked against it. The Foundry project is
+    shared with the whole class; this is the attribution main.py's
+    `_may_access_hosted` enforces, not real authentication.
     """
     model = model or settings.azure_ai_chat_deployment
     instructions = persona.system_prompt(grounded=True)
@@ -224,6 +235,8 @@ def deploy(persona: Persona, model: str | None = None) -> dict:
         agent = _call("POST", f"assistants/{existing['agent_id']}", body)
         action = "updated"
     else:
+        if created_by:
+            body["metadata"] = {"created_by": created_by}
         agent = _call("POST", "assistants", body)
         action = "created"
 

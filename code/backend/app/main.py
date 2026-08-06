@@ -128,6 +128,34 @@ def _require_qdrant() -> None:
         )
 
 
+def _visible_hosted_names() -> set[str]:
+    """Hosted-agent names visible by default: your own local personas, plus
+    whatever FOUNDRY_VISIBLE_EXTRA explicitly allow-lists. Fallback used by
+    `_may_access_hosted` for agents with no `created_by` stamp (made before
+    that existed, or from the CLI/portal directly)."""
+    local_names = {p.name for p in list_personas()}
+    visible_extra = {n.strip() for n in settings.foundry_visible_extra.split(",") if n.strip()}
+    return local_names | visible_extra
+
+
+def _may_access_hosted(agent: dict, owner: str | None) -> bool:
+    """May `owner` delete or overwrite this hosted agent?
+
+    The Foundry project is shared with the whole class, so /assistants is
+    full of everyone's agents. An agent stamped with `created_by` (see
+    foundry_agent.deploy) is exclusively that owner's — no fallback, even if
+    its name happens to be one of yours. An unstamped agent (legacy/CLI-made)
+    falls back to the same visibility heuristic the picker uses. Like the
+    rest of this console's `owner` field, this is a self-declared string, not
+    real authentication — it closes the *default wide-open* state, not a
+    hard security boundary against a determined attacker.
+    """
+    created_by = agent.get("created_by")
+    if created_by:
+        return created_by == owner
+    return agent["name"] in _visible_hosted_names()
+
+
 # --- ops ----------------------------------------------------------------------
 @app.get("/health", response_model=Health, tags=["ops"])
 def health() -> Health:
@@ -602,26 +630,40 @@ def agents_list() -> AgentListResponse:
 
 
 @app.get("/agents/hosted", tags=["5 · agents"])
-def agents_hosted() -> dict:
-    """What actually exists in the Foundry Agent Service right now — whatever
-    created it: our scripts, the SDK, or somebody clicking in the portal."""
+def agents_hosted(owner: str | None = None) -> dict:
+    """Hosted agents visible to you — the Foundry project is shared with the
+    whole class, so this does NOT enumerate everyone's agents: only ones
+    `_may_access_hosted` says `owner` may see (your own stamped agents, plus
+    the same local-persona/FOUNDRY_VISIBLE_EXTRA visibility the picker uses
+    for anything unstamped)."""
     availability = foundry_agent.availability()
     if not availability["available"]:
         raise HTTPException(status_code=503, detail=availability["reason"])
     try:
-        return {"count": len(items := foundry_agent.list_hosted()), "agents": items}
+        items = [a for a in foundry_agent.list_hosted() if _may_access_hosted(a, owner)]
+        return {"count": len(items), "agents": items}
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Could not list hosted agents: {e}")
 
 
 @app.delete("/agents/hosted/{agent_id}", tags=["5 · agents"])
-def agent_hosted_delete(agent_id: str) -> dict:
+def agent_hosted_delete(agent_id: str, owner: str | None = None) -> dict:
     """Remove an agent from Foundry. The local JSON file is untouched — the
-    persona keeps working in local mode."""
+    persona keeps working in local mode.
+
+    Only allowed for an agent `_may_access_hosted` says `owner` may reach —
+    the Foundry project is shared with the whole class, and knowing an agent
+    id (e.g. from Swagger) is not by itself authorization to delete it.
+    """
     try:
+        match = next((a for a in foundry_agent.list_hosted() if a["agent_id"] == agent_id), None)
+        if match is None or not _may_access_hosted(match, owner):
+            raise HTTPException(status_code=404, detail=f"No agent '{agent_id}' visible to you")
         foundry_agent.delete_hosted(agent_id)
     except foundry_agent.FoundryUnavailable as e:
         raise HTTPException(status_code=503, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Could not delete agent: {e}")
     return {"deleted": True, "agent_id": agent_id}
@@ -644,21 +686,36 @@ def agent_detail(name: str) -> dict:
 
 
 @app.post("/agents/{name}/deploy", tags=["5 · agents"])
-def agent_deploy(name: str) -> dict:
+def agent_deploy(name: str, owner: str | None = None) -> dict:
     """Publish this persona to the Azure AI Foundry **Agent Service**.
 
     The same thing `python scripts/deploy_agent.py <name>` does — exposed here so
     it can be demonstrated from Swagger. Requires AZURE_AI_PROJECT_ENDPOINT and
     an Entra identity with the Azure AI User role on the project.
+
+    If an agent with this name already exists and `owner` may not access it
+    (see `_may_access_hosted`) this refuses rather than overwriting someone
+    else's agent — the Foundry project is shared with the whole class, and a
+    persona file name is not, by itself, a claim on that name in Foundry.
     """
     try:
         persona = load_persona(name)
     except PersonaNotFound as e:
         raise HTTPException(status_code=404, detail=str(e))
     try:
-        result = foundry_agent.deploy(persona)
+        existing = foundry_agent.find_hosted(persona.name)
+        if existing and not _may_access_hosted(existing, owner):
+            raise HTTPException(
+                status_code=409,
+                detail=f"An agent named '{persona.name}' already exists in this shared "
+                       f"Foundry project and isn't visible to you — rename your persona "
+                       f"rather than overwrite someone else's agent.",
+            )
+        result = foundry_agent.deploy(persona, created_by=owner)
     except foundry_agent.FoundryUnavailable as e:
         raise HTTPException(status_code=503, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Deployment to Foundry failed: {e}")
     result["next_step"] = (
@@ -669,7 +726,8 @@ def agent_deploy(name: str) -> dict:
 
 
 # --- tools / specialist services ----------------------------------------------
-@app.post("/tools/web-fetch", response_model=ScrapeResponse, tags=["6 · tools"])
+@app.post("/tools/web-fetch", response_model=ScrapeResponse, tags=["6 · tools"],
+          dependencies=[Depends(rate_limit)])
 def web_fetch(req: ScrapeRequest) -> ScrapeResponse:
     """Fetch a page and strip it to text — **the do-it-yourself lane**.
 
@@ -679,6 +737,8 @@ def web_fetch(req: ScrapeRequest) -> ScrapeResponse:
     """
     try:
         result = web.scrape(req.url, max_chars=req.max_chars or 20000)
+    except web.UnsafeURL as e:
+        raise HTTPException(status_code=400, detail=f"Refused: {e}")
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Fetch failed: {e}")
     return ScrapeResponse(**result.__dict__)

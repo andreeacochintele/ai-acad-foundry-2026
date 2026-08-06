@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { api } from '../api'
 import { Err, PageHeader, Panel, RawJson, RUNS_ON, RunsOnBadge, Spinner, StatGrid, StatTile } from '../components'
 import { useLanguage } from '../i18n.jsx'
+import { ownerKeyFor } from '../ownerKey'
 
 const COUNT_ICON = <><rect x="4" y="8" width="16" height="12" rx="2" /><path d="M12 8V4H9" /></>
 function CountIcon() {
@@ -13,8 +14,9 @@ function CountIcon() {
   )
 }
 
-export default function Agents({ agents, hostedOnly = [], foundry, reload, azure }) {
+export default function Agents({ agents, hostedOnly = [], foundry, reload, azure, session = null }) {
   const { t } = useLanguage()
+  const ownerKey = ownerKeyFor(session)
   const [detail, setDetail] = useState(null)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState(null)
@@ -117,7 +119,7 @@ export default function Agents({ agents, hostedOnly = [], foundry, reload, azure
                     {a.runs_on !== 'foundry' && (
                       <button className="btn btn-outline btn-sm" disabled={!!busy}
                               title={a.runs_on === 'both' ? t('agents.updateInFoundryTitle') : t('agents.deployToFoundryTitle')}
-                              onClick={() => act(a.name, () => api.deployAgent(a.name),
+                              onClick={() => act(a.name, () => api.deployAgent(a.name, ownerKey),
                                 (r) => t('agents.deployedAction', { action: r.action, id: r.agent_id }))}>
                         {a.runs_on === 'both' ? t('agents.updateInFoundry') : t('agents.deployToFoundry')}
                       </button>
@@ -127,7 +129,7 @@ export default function Agents({ agents, hostedOnly = [], foundry, reload, azure
                         <>
                           <button className="btn btn-sm" style={{ background: 'var(--grad-cta)', color: '#fff' }}
                                   disabled={!!busy}
-                                  onClick={() => act(a.name, () => api.deleteHostedAgent(a.hosted.agent_id),
+                                  onClick={() => act(a.name, () => api.deleteHostedAgent(a.hosted.agent_id, ownerKey),
                                     () => t('agents.removedAction', { name: a.name }))}>
                             {t('agents.confirmDelete')}
                           </button>

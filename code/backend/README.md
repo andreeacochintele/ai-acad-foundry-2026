@@ -304,6 +304,19 @@ uv run python scripts/invoke_agent.py "What fee applies to early repayment?" --p
 API keys are **not accepted** by the Agent Service — it is Entra-only. Set
 `AZURE_AI_AUTH=identity` and `az login` for that lane.
 
+**The Foundry project is shared with the whole class**, so `/assistants` is
+full of everyone's agents. `GET /agents/hosted`, `DELETE
+/agents/hosted/{id}`, and `POST /agents/{name}/deploy` all take an optional
+`?owner=` — an agent deployed through this console gets that value stamped
+into its Foundry metadata as `created_by`, and only a matching `owner` may
+later list, delete, or overwrite it; an agent with no stamp (made before
+this existed, or from the CLI/portal) falls back to the same
+local-persona/`FOUNDRY_VISIBLE_EXTRA` visibility the agent picker already
+used. Like the rest of this console's `owner` field, that's a self-declared
+string, not real authentication — it closes the *default wide-open* state
+(anyone could list, delete, or overwrite anyone's agent), not a hard
+security boundary against a determined attacker.
+
 ## Tools (specialist services)
 
 ```bash
@@ -329,6 +342,13 @@ mono WAV sidesteps that header entirely (see `toMono16kWav` in `Chat.jsx`).
 `/tools/web-fetch` exists to be honest about scraping: it reports what the naive
 approach could not do (JavaScript rendering, bot walls, consent banners, non-HTML
 formats). That list is the argument for managed grounding.
+
+`scrape()` (`app/services/web.py`) refuses a URL that resolves to a private,
+loopback, link-local (including cloud instance metadata,
+`169.254.169.254`), reserved, or multicast address, or that isn't
+`http`/`https` — an SSRF guard, since this endpoint fetches whatever URL a
+caller supplies. Checked before the initial request and again before every
+redirect hop it follows, not just the URL as typed.
 
 Chunking strategies (`strategy` in the request body): `static` (fixed windows),
 `sentence` (N sentences per chunk), `dynamic` (paragraph/sentence-aware packing with
