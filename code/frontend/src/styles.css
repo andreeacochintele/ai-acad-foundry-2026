@@ -50,6 +50,10 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; }
   gap: .5rem 1rem; padding: .7rem 1.3rem; background: var(--surface); border-bottom: 1px solid var(--border);
 }
 .brand { display: flex; align-items: center; gap: .6rem; min-width: 0; flex: 1 1 auto; }
+.brand-link { display: flex; align-items: center; gap: .6rem; min-width: 0; flex: 1 1 auto;
+  background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: left;
+  opacity: 1; transition: opacity .15s; }
+.brand-link:hover { opacity: .8; }
 .menu-toggle {
   flex: 0 0 auto; width: 32px; height: 32px; border-radius: var(--r-sm); margin-right: .2rem;
   display: flex; align-items: center; justify-content: center; cursor: pointer;

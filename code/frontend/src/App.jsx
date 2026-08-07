@@ -19,7 +19,6 @@ import Tools from './views/Tools'
 // (chunking internals, retrieval scores, agent management, raw tool calls,
 // system health) are console/internal-only.
 const VIEWS = [
-  { id: 'home', label: 'nav.home', group: 'Assistant', clientVisible: true },
   { id: 'chat', label: 'nav.chat', group: 'Assistant', clientVisible: true },
   { id: 'calculator', label: 'nav.calculator', group: 'Assistant', clientVisible: true },
   { id: 'knowledge', label: 'nav.knowledge', group: 'Pipeline' },
@@ -166,7 +165,9 @@ export default function App() {
 
   const visibleViews = effectiveIsClient ? VIEWS.filter((v) => v.clientVisible) : VIEWS
   useEffect(() => {
-    if (!visibleViews.some((v) => v.id === view)) setView('home')
+    // 'home' isn't in VIEWS (it's reached from the brand title, not a nav pill)
+    // but is always valid — every role can see it.
+    if (view !== 'home' && !visibleViews.some((v) => v.id === view)) setView('home')
   }, [effectiveIsClient])   // eslint-disable-line react-hooks/exhaustive-deps
 
   const groups = [...new Set(visibleViews.map((v) => v.group))]
@@ -187,8 +188,11 @@ export default function App() {
               <path d="M4 6h16" /><path d="M4 12h16" /><path d="M4 18h16" />
             </svg>
           </button>
-          <BrandMark size={28} />
-          <span className="brand-name">Libra Assist Credit Specialist</span>
+          <button type="button" className="brand-link" onClick={() => setView('home')}
+                  title={t('nav.home')} aria-label={t('nav.home')}>
+            <BrandMark size={28} />
+            <span className="brand-name">Libra Assist Credit Specialist</span>
+          </button>
           <span className="brand-tag">{t('topbar.consoleTag')}</span>
         </div>
 

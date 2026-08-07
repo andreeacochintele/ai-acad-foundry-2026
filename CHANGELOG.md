@@ -370,10 +370,15 @@ three worst findings:
 
 ### Home dashboard — login no longer drops you straight into Chat
 
-- New **Home** screen (`views/Home.jsx`), first in the nav and the default
-  view after login (`App.jsx`'s `login()` now resets `view` explicitly, so
-  a fresh login always lands there regardless of what a previous session
-  left the nav on). Stat tiles for conversation count, message count, and
+- New **Home** screen (`views/Home.jsx`), the default view after login
+  (`App.jsx`'s `login()` now resets `view` explicitly, so a fresh login
+  always lands there regardless of what a previous session left the nav
+  on). Reached from the brand title in the topbar (now a button,
+  `.brand-link`) rather than its own nav pill — `view` can still be
+  `'home'` even though it's deliberately absent from the `VIEWS` list, so
+  the "is the current view still valid" effect in `App.jsx` special-cases
+  it rather than treating it as an invalid view to bounce out of. Stat
+  tiles for conversation count, message count, and
   last-activity time — reads the same owner-scoped `GET /sessions` the Chat
   history sidebar already uses, no new backend endpoint.
 - Two big action cards: continue the most recent conversation (or start one
