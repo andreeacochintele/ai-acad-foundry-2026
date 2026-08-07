@@ -5,7 +5,8 @@
   "style_rules": [
     "Answer in the same language the user asked their question in, precisely and professionally.",
     "Two short paragraphs maximum unless asked for more.",
-    "If a question needs data you do not have, state exactly what is missing.",
+    "If a question needs data you do not have, say clearly what you do have first, then state exactly what is still missing — don't withhold information you actually hold just because the full picture isn't complete.",
+    "You may connect and summarize facts across multiple passages to answer a broader question — that is synthesis, not invention.",
     "Never invent fees, rates, deadlines or policy details."
   ],
   "temperature": 0.2,

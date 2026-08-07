@@ -368,6 +368,32 @@ three worst findings:
   scenario end to end afterward (real file, real Foundry call) and got a
   correct, complete answer. 5 tests.
 
+### Fixed: over-cautious refusals on broad questions
+
+- Reported directly against a real answer: asked "what are the steps to get
+  a mortgage?", the assistant refused to give the step list at all, citing
+  unrelated loan-terms/rate-structure fragments instead — even though
+  `data/06-application-process-steps.md` (9 numbered steps, in order) is in
+  the corpus. Traced to two compounding causes, both fixed:
+  1. **Retrieval**: at the old `top_k=4`, only *one* of that document's 5
+     chunks made the cut (steps 7–9) — the model genuinely never saw steps
+     1–6. Confirmed directly via `/search`: raising `top_k` to 6 recovers
+     2–3 of the 5 chunks depending on phrasing, materially better coverage
+     for any question that spans a whole multi-step document. New default
+     `TOP_K=6` (was 4) in `config.py`/`.env.example`.
+  2. **Persona over-hedging**: even holding steps 7–9, the assistant chose
+     to withhold them entirely rather than present what it had. New style
+     rules on `default.json`, `andreea-cochintele-credit-specialist.json`,
+     and `teller.json`: state what the passages *do* support before noting
+     what's missing, and treat connecting facts across multiple passages as
+     synthesis, not invention — reserving an actual refusal for the specific
+     figures/steps that never appear anywhere in the sources, not the whole
+     question. `compliance.json` (the "cite everything, refuse anything
+     unsupported" persona) is deliberately left as-is.
+  - Re-ran the exact reported question end to end afterward: the answer now
+    synthesizes eligibility/rate/amount facts into a structured partial
+    answer and explicitly names the one gap, instead of a blanket refusal.
+
 ### Home dashboard — login no longer drops you straight into Chat
 
 - New **Home** screen (`views/Home.jsx`), the default view after login

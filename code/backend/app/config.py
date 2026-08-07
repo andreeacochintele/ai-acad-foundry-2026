@@ -23,7 +23,9 @@ class Settings(BaseSettings):
     semantic_threshold: float = 0.75       # cosine cut-off for the 'semantic' strategy
 
     # --- retrieval / generation defaults ------------------------------------
-    top_k: int = 4
+    top_k: int = 6   # was 4 — a question spanning a whole multi-step document (e.g. the
+                     # 9-step application process, 5 chunks) needs more room than that to
+                     # avoid losing the steps that didn't make a narrower top-k
     llm_temperature: float = 0.2
     llm_max_tokens: int = 2500   # reasoning models spend part of this budget thinking
 
