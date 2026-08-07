@@ -62,7 +62,7 @@ function groupLabel(ts, t) {
 }
 
 export default function Chat({ agents, hostedOnly = [], foundry, clientMode = false, session = null }) {
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
   const ownerKey = ownerKeyFor(session)
   const [conversations, setConversations] = useState(() => loadLocal(ownerKey)?.conversations || [makeConversation()])
   const [activeId, setActiveId] = useState(() => loadLocal(ownerKey)?.activeId || conversations[0].id)
@@ -70,12 +70,21 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
   const [factCheck, setFactCheck] = useState(false)
   const [topK, setTopK] = useState(3)
   const [temperature, setTemperature] = useState(0.2)
+  // 0 = off (no filtering — Qdrant's default top-k-closest behaviour). Above
+  // 0, a retrieved chunk scoring below this is dropped before it reaches the
+  // model — the way to actually see the "RAG on, nothing retrieved" state in
+  // Audit, since the console otherwise never sends a threshold at all.
+  const [minScore, setMinScore] = useState(0)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [speakingIdx, setSpeakingIdx] = useState(null)
+  const [copiedIdx, setCopiedIdx] = useState(null)
+  const [openDownload, setOpenDownload] = useState(null)   // null | 'conv' | message index
   const [historyOpen, setHistoryOpen] = useState(true)
   const [micState, setMicState] = useState('idle')   // idle | recording | transcribing
-  const [micLang, setMicLang] = useState('ro-RO')
+  // Follows the site's own language toggle rather than being picked separately —
+  // asking in Romanian and speaking into the mic in Romanian is the same choice.
+  const micLang = lang === 'en' ? 'en-US' : 'ro-RO'
   const [settingsOpen, setSettingsOpen] = useState(false)
   // conversation id -> {filename, file_type, text, chars, warnings} — a document
   // attached for this conversation only, never added to the knowledge base.
@@ -93,6 +102,15 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
 
   useEffect(() => () => audioRef.current?.pause(), [])
   useEffect(() => () => recorderRef.current?.stream?.getTracks().forEach((tr) => tr.stop()), [])
+
+  useEffect(() => {
+    if (openDownload === null) return
+    function onClickOutside(e) {
+      if (!e.target.closest('.download-menu-wrap')) setOpenDownload(null)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [openDownload])
 
   useEffect(() => {
     if (!settingsOpen) return
@@ -255,6 +273,16 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
     }
   }
 
+  async function copyMessage(idx, text) {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedIdx(idx)
+      setTimeout(() => setCopiedIdx((cur) => (cur === idx ? null : cur)), 1500)
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+
   useEffect(() => {
     api.sessions.list(ownerKey).then((list) => {
       const backendIds = new Set(list.map((s) => s.id))
@@ -307,6 +335,11 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
     })
   }
 
+  // Returns the backend save as a promise (rather than firing it and forgetting)
+  // so a caller that awaits it — send(), below — only lets go of "busy" once the
+  // turn is actually durable, not just once it's been painted on screen. Without
+  // that, navigating away (or reloading) right after an answer appears could
+  // abandon the save mid-flight and silently lose that turn.
   function patchConversation(id, patcher) {
     let merged = null
     setConversations((cs) => cs.map((c) => {
@@ -314,7 +347,8 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
       merged = { ...c, ...(typeof patcher === 'function' ? patcher(c) : patcher), updatedAt: Date.now() }
       return merged
     }))
-    if (merged) api.sessions.save(toWire(merged, ownerKey)).catch((e) => setError(e.message))
+    if (merged) return api.sessions.save(toWire(merged, ownerKey)).catch((e) => setError(e.message))
+    return Promise.resolve()
   }
 
   function setAgent(v) { patchConversation(activeId, { agent: v }) }
@@ -399,6 +433,54 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
                  `${slugTitle(activeConv)}.json`)
   }
 
+  // The question paired with one bot answer, for a single-message download —
+  // found by walking backward from it to the nearest preceding user turn.
+  function precedingQuestion(idx) {
+    for (let i = idx - 1; i >= 0; i--) {
+      if (activeConv.messages[i].role === 'user') return activeConv.messages[i].text || ''
+    }
+    return ''
+  }
+
+  function downloadMessageMd(idx) {
+    const d = activeConv.messages[idx].data || {}
+    const lines = [`## ${t('audit.question')}`, '', precedingQuestion(idx), '',
+                   `## ${d.agent?.display_name || 'Assistant'}`, '', d.answer || '']
+    downloadBlob(new Blob([lines.join('\n') + '\n'], { type: 'text/markdown' }), `${slugTitle(activeConv)}-${idx + 1}.md`)
+  }
+
+  function downloadMessageJson(idx) {
+    const payload = { question: precedingQuestion(idx), ...activeConv.messages[idx].data }
+    downloadBlob(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }), `${slugTitle(activeConv)}-${idx + 1}.json`)
+  }
+
+  // A small icon button that opens a two-item format picker (.md / .json).
+  // `id` is 'conv' for the whole-conversation download, or a message index
+  // for a single answer — openDownload tracks which one (if any) is open.
+  function renderDownloadMenu(id, onMd, onJson, disabled) {
+    const open = openDownload === id
+    return (
+      <div className="download-menu-wrap">
+        <button type="button" className="speak-btn" disabled={disabled}
+                onClick={() => setOpenDownload(open ? null : id)}
+                title={t('chat.downloadTitle')} aria-expanded={open}>
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"
+               strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <path d="M7 10l5 5 5-5" /><path d="M12 15V3" />
+          </svg>
+          {t('chat.download')}
+        </button>
+        {open && (
+          <div className="download-menu">
+            <button type="button" onClick={() => { onMd(); setOpenDownload(null) }}>{t('chat.formatMd')}</button>
+            <button type="button" onClick={() => { onJson(); setOpenDownload(null) }}>{t('chat.formatJson')}</button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   // The backend keeps no session state (app/sessions.py is disk persistence for
   // the console, not conversation memory for the model) — so a follow-up like
   // "and the second option?" only makes sense to the model if we resend the
@@ -430,12 +512,14 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
     }))
     try {
       const data = await api.ask({ question: text, history, use_rag: useRag, top_k: Number(topK),
-                                  temperature: Number(temperature),
+                                  temperature: Number(temperature), min_score: Number(minScore) || undefined,
                                   agent, agent_mode: mode, fact_check: factCheck,
                                   attached_document: attachedDoc?.text || undefined })
-      patchConversation(convId, (c) => ({ messages: [...c.messages, { role: 'bot', data }] }))
+      // Awaited: "busy" (and the spinner) only clears once the turn is actually
+      // saved, not just answered — see patchConversation's comment for why.
+      await patchConversation(convId, (c) => ({ messages: [...c.messages, { role: 'bot', data }] }))
     } catch (e) {
-      patchConversation(convId, (c) => ({ messages: [...c.messages, { role: 'err', text: e.message }] }))
+      await patchConversation(convId, (c) => ({ messages: [...c.messages, { role: 'err', text: e.message }] }))
       setError(e.message)
     } finally { setBusy(false) }
   }
@@ -514,8 +598,8 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
       </aside>
 
       <div className="chat-wrap">
-        {!clientMode && (
         <div className="chat-bar">
+          {!clientMode && (
           <div className="settings-wrap" ref={settingsRef}>
             <button type="button" className="btn btn-outline btn-sm" onClick={() => setSettingsOpen((v) => !v)}
                     title={t('chat.settingsTitle')} aria-expanded={settingsOpen}>
@@ -563,12 +647,6 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
                   {t('chat.factCheck')}
                 </label>
 
-                <label>{t('chat.micLanguage')}</label>
-                <select value={micLang} onChange={(e) => setMicLang(e.target.value)} title={t('chat.micLanguageTitle')}>
-                  <option value="ro-RO">RO mic</option>
-                  <option value="en-US">EN mic</option>
-                </select>
-
                 <label>{t('chat.topK')}</label>
                 <input type="number" min="1" max="10" value={topK} onChange={(e) => setTopK(e.target.value)}
                        title={t('chat.topKTitle')} />
@@ -578,15 +656,12 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
                        onChange={(e) => setTemperature(e.target.value)}
                        title={t('chat.temperatureTitle')} />
 
+                <label>{t('chat.minScore')}</label>
+                <input type="number" min="0" max="1" step="0.05" value={minScore}
+                       onChange={(e) => setMinScore(e.target.value)}
+                       title={t('chat.minScoreTitle')} />
+
                 <div className="settings-actions">
-                  <button type="button" className="btn btn-outline btn-sm" onClick={exportMarkdown} disabled={!messages.length}
-                          title={t('chat.exportMdTitle')}>
-                    {t('chat.exportMd')}
-                  </button>
-                  <button type="button" className="btn btn-outline btn-sm" onClick={exportJson} disabled={!messages.length}
-                          title={t('chat.exportJsonTitle')}>
-                    {t('chat.exportJson')}
-                  </button>
                   <button type="button" className="btn btn-outline btn-sm"
                           onClick={() => { patchConversation(activeId, { messages: [] }); setSettingsOpen(false) }}>
                     {t('chat.clear')}
@@ -595,13 +670,14 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
               </div>
             )}
           </div>
-          {current && (
+          )}
+          {renderDownloadMenu('conv', exportMarkdown, exportJson, !messages.length)}
+          {!clientMode && current && (
             <span className="badge muted" title={current.description}>
               {mode === 'foundry' ? t('chat.foundryAgent') : t('chat.localAgent')} · temp {temperature} · top-{topK}
             </span>
           )}
         </div>
-        )}
 
         <div className="msgs">
           {messages.length === 0 && (
@@ -655,6 +731,21 @@ export default function Chat({ agents, hostedOnly = [], foundry, clientMode = fa
                     </svg>
                     {speakingIdx === i ? t('chat.stop') : t('chat.listen')}
                   </button>
+                  <button className={`speak-btn ${copiedIdx === i ? 'playing' : ''}`}
+                          onClick={() => copyMessage(i, d.answer)}
+                          title={t('chat.copyAnswer')}>
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"
+                         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      {copiedIdx === i
+                        ? <path d="M20 6 9 17l-5-5" />
+                        : <>
+                            <rect x="9" y="9" width="12" height="12" rx="2" />
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                          </>}
+                    </svg>
+                    {copiedIdx === i ? t('chat.copied') : t('chat.copy')}
+                  </button>
+                  {renderDownloadMenu(i, () => downloadMessageMd(i), () => downloadMessageJson(i))}
                   {!clientMode && <span className="badge">{d.agent?.display_name || t('chat.agentFallback')}</span>}
                   {!clientMode && <span className={`badge ${d.augmented ? 'gold' : 'muted'}`}>{d.augmented ? t('chat.grounded') : t('chat.noRetrieval')}</span>}
                   {!clientMode && <span className="badge muted">{d.agent?.mode}</span>}

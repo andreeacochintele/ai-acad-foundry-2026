@@ -101,3 +101,14 @@ def test_breakdown_by_owner_and_by_day_and_sorted_by_cost_desc():
     owners = [row["owner"] for row in result["by_owner"]]
     assert owners[0] == "bob::admin"   # higher cost sorts first
     assert len(result["by_day"]) == 2  # two distinct calendar days
+
+
+def test_known_owner_with_no_messages_still_appears_zeroed():
+    sessions = [_session("alice::user", 1_735_000_000_000, [
+        _bot_message("azure", "gpt-5.1", "default", 100, 50, 0.001),
+    ])]
+    result = compute_usage_analytics(sessions, known_owners=["alice::user", "carol::user"])
+    owners = {row["owner"]: row for row in result["by_owner"]}
+    assert "carol::user" in owners
+    assert owners["carol::user"]["messages"] == 0
+    assert owners["carol::user"]["cost_usd"] == 0

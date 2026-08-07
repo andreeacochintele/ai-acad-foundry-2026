@@ -235,6 +235,20 @@ pre.out { background: var(--code-bg); border: 1px solid var(--border); border-ra
 .speak-btn:hover { color: var(--accent); border-color: var(--accent); }
 .speak-btn.playing { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
 
+.grounding-bar { display: flex; width: 100%; height: .5rem; border-radius: var(--r-pill); overflow: hidden; background: var(--surface-2); }
+.grounding-bar-seg { height: 100%; }
+.grounding-bar-seg.grounded { background: var(--accent); }
+.grounding-bar-seg.risk { background: var(--c-crimson); }
+.grounding-bar-seg.ungrounded { background: var(--c-gold); }
+
+.download-menu-wrap { position: relative; display: inline-flex; }
+.download-menu { position: absolute; top: calc(100% + .3rem); right: 0; z-index: 20; min-width: 9rem;
+  display: flex; flex-direction: column; gap: .15rem; padding: .35rem; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--shadow-lift); }
+.download-menu button { text-align: left; padding: .4em .6em; border-radius: var(--r-xs); border: none;
+  background: transparent; color: var(--text); cursor: pointer; font-size: .78rem; white-space: nowrap; }
+.download-menu button:hover { background: var(--surface-2); color: var(--accent); }
+
 .settings-wrap { position: relative; }
 .settings-panel { position: absolute; top: calc(100% + .4rem); left: 0; z-index: 20; min-width: 15rem;
   display: flex; flex-direction: column; gap: .55rem; padding: .9rem; background: var(--surface);

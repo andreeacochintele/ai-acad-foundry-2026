@@ -477,6 +477,16 @@ class SessionSave(BaseModel):
     owner: str = Field("", description="login identity (name+role) this conversation belongs to")
 
 
+class UserLogin(BaseModel):
+    model_config = {"json_schema_extra": {"examples": [{
+        "owner": "andreea::user", "name": "Andreea", "role": "user",
+    }]}}
+
+    owner: str = Field(..., description="login identity — ownerKeyFor(session) on the frontend")
+    name: str
+    role: Literal["user", "admin"]
+
+
 # --- ops ----------------------------------------------------------------------
 class CollectionInfo(BaseModel):
     exists: bool

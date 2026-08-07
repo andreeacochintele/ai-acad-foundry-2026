@@ -15,6 +15,7 @@ from . import analytics
 from . import chunking
 from . import rag
 from . import sessions as sessions_store
+from . import users as users_store
 from .agents import foundry_agent, local_agent
 from .agents.persona import PersonaNotFound, available_names, load_persona, list_personas, PERSONA_DIR
 from .config import settings
@@ -28,7 +29,7 @@ from .schemas import (
     AgentInfo, AgentListResponse, AskRequest, AskResponse, AzureDeployment, AzureDeployments,
     AzureStatus, ChunkInfo, ChunkRequest, ChunkResponse, CollectionInfo, DocumentExtractResponse,
     FoundryAvailability, Health, HostedAgent, IngestRequest, IngestResponse, PersonaSummary,
-    ScrapeRequest, ScrapeResponse, SearchHit, SearchRequest, SearchResponse, SessionSave,
+    ScrapeRequest, ScrapeResponse, SearchHit, SearchRequest, SearchResponse, SessionSave, UserLogin,
     SpeakRequest, TranscribeResponse, Usage, WebSearchHit, WebSearchRequest, WebSearchResponse,
     FactCheckRequest, FactCheckResponse, FactCheckSource, FactCheckVerdict,
     AzureSearchQueryRequest, AzureSearchSyncRequest,
@@ -1001,6 +1002,15 @@ async def extract_document(file: UploadFile = File(..., description="txt, md, pd
     return DocumentExtractResponse(**result.__dict__)
 
 
+# --- users ------------------------------------------------------------------
+@app.post("/users/login", tags=["8 · sessions"])
+def users_login(req: UserLogin) -> dict:
+    """Record a login identity so it shows up in the admin-only Audit and
+    Analytics views right away — even before that user has sent a single
+    message, instead of being invisible until their first saved session."""
+    return users_store.register_login(req.owner, req.name, req.role)
+
+
 # --- sessions -------------------------------------------------------------
 @app.get("/sessions", tags=["8 · sessions"])
 def sessions_list(owner: str | None = None) -> list[dict]:
@@ -1085,4 +1095,20 @@ def analytics_usage() -> dict:
     store. Console-side this powers the admin-only Analytics view — there is
     no server-side role check (consistent with the rest of this console: the
     login gate is a UI convenience, not real authentication)."""
-    return analytics.compute_usage_analytics(sessions_store.list_sessions())
+    known_owners = [u["owner"] for u in users_store.list_users()]
+    return analytics.compute_usage_analytics(sessions_store.list_sessions(), known_owners=known_owners)
+
+
+@app.get("/analytics/audit", tags=["8 · sessions"])
+def analytics_audit() -> dict:
+    """Per-user answer-quality signals for the admin-only Audit view —
+    message count, average answer length, grounded/risk/ungrounded counts,
+    fact-check outcomes.
+
+    Deliberately never returns anyone's actual question or answer text: the
+    aggregation happens entirely in `analytics.compute_audit_stats`, so on a
+    console shared by a whole class, an admin can see *whether* a user is
+    getting hallucinated answers without reading what that user actually
+    asked — that content stays between them and the assistant."""
+    known_owners = [u["owner"] for u in users_store.list_users()]
+    return analytics.compute_audit_stats(sessions_store.list_sessions(), known_owners=known_owners)

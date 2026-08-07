@@ -7,10 +7,15 @@ are written by the API itself (the console saves on every turn), not hand-edited
 from __future__ import annotations
 
 import json
+import logging
+import os
 import re
+import tempfile
 import time
 import uuid
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 SESSIONS_DIR = Path(__file__).parent / "data" / "sessions"
 SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
@@ -45,7 +50,15 @@ def list_sessions(owner: str | None = None) -> list[dict]:
     when they share this backend — pass it to see only that owner's sessions,
     omit it for the old unscoped behaviour.
     """
-    sessions = [json.loads(p.read_text(encoding="utf-8")) for p in SESSIONS_DIR.glob("*.json")]
+    sessions = []
+    for p in SESSIONS_DIR.glob("*.json"):
+        try:
+            sessions.append(json.loads(p.read_text(encoding="utf-8")))
+        except json.JSONDecodeError as e:
+            # One bad file (e.g. from a non-atomic write racing with another
+            # save of the same id) must not take every user's session list
+            # down with it — skip it and keep serving the rest.
+            logger.warning("Skipping unreadable session file %s: %s", p.name, e)
     if owner is not None:
         sessions = [s for s in sessions if s.get("owner", "") == owner]
     sessions.sort(key=lambda s: s.get("updated_at", 0), reverse=True)
@@ -68,7 +81,21 @@ def save_session(payload: dict) -> dict:
         "created_at": payload.get("created_at") or now,
         "updated_at": now,
     }
-    _path(id).write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
+    path = _path(id)
+    # Write to a temp file in the same directory, then atomically replace the
+    # target. A plain write_text() truncates-then-writes in two separate
+    # steps — two saves for the same id racing (e.g. a duplicated request)
+    # can interleave into a half-written, corrupt file. os.replace() is a
+    # single atomic filesystem operation on both POSIX and Windows, so the
+    # file is always either the old, complete record or the new one.
+    fd, tmp_path = tempfile.mkstemp(dir=path.parent, prefix=f".{path.stem}-", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False, indent=2))
+        os.replace(tmp_path, path)
+    except Exception:
+        Path(tmp_path).unlink(missing_ok=True)
+        raise
     return record
 
 

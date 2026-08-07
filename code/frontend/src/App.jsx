@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from './api'
 import { BrandMark } from './components'
 import { useLanguage } from './i18n.jsx'
+import { ownerKeyFor } from './ownerKey'
 import Agents from './views/Agents'
 import Analytics from './views/Analytics'
+import Audit from './views/Audit'
 import Calculator from './views/Calculator'
 import Chat from './views/Chat'
 import Home from './views/Home'
@@ -27,6 +29,7 @@ const VIEWS = [
   { id: 'tools', label: 'nav.tools', group: 'Platform' },
   { id: 'status', label: 'nav.status', group: 'Platform' },
   { id: 'analytics', label: 'nav.analytics', group: 'Platform' },
+  { id: 'audit', label: 'nav.audit', group: 'Platform' },
 ]
 
 const UI_MODE_KEY = 'libra-console-ui-mode'
@@ -79,6 +82,10 @@ const ICON_PATHS = {
   </>,
   tools: <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.4-3.4a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 1 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z" />,
   status: <path d="M22 12h-4l-3 9L9 3l-3 9H2" />,
+  audit: <>
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+    <circle cx="12" cy="12" r="3" />
+  </>,
 }
 
 function Icon({ name, className }) {
@@ -120,6 +127,9 @@ export default function App() {
     setSession(s)
     setView('home')   // land on the dashboard, not wherever a previous session left off
     if (s.role === 'user') setUiMode('client')
+    // So this login shows up in the admin-only Audit/Analytics views right away,
+    // even before it has sent a single message — best-effort, never blocks login.
+    api.registerLogin({ owner: ownerKeyFor(s), name: s.name, role: s.role }).catch(() => {})
   }
   function logout() {
     try { localStorage.removeItem(SESSION_KEY) } catch { /* storage unavailable */ }
@@ -139,6 +149,12 @@ export default function App() {
   }, [])
 
   useEffect(() => { loadAgents(); loadHealth(); loadAzure() }, [loadAgents, loadHealth, loadAzure])
+  // Backfills a session restored from localStorage (a prior login, before this
+  // page reload) into the registry too — registerLogin is idempotent, so this
+  // is safe to call every mount, not just on the login() call itself.
+  useEffect(() => {
+    if (session) api.registerLogin({ owner: ownerKeyFor(session), name: session.name, role: session.role }).catch(() => {})
+  }, [])   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { document.documentElement.dataset.theme = theme }, [theme])
   // Auto-collapse the nav menu at roughly half a normal desktop screen, so the
   // logo never has to compete with a row of nav pills for space — the hamburger
@@ -270,6 +286,7 @@ export default function App() {
         {view === 'status' && <Status health={health} reload={loadHealth}
                                       azure={azure} reloadAzure={loadAzure} />}
         {view === 'analytics' && <Analytics />}
+        {view === 'audit' && <Audit />}
       </main>
     </div>
   )

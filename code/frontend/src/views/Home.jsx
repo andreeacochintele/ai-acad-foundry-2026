@@ -38,6 +38,7 @@ const ADMIN_SHORTCUT_ICONS = {
   tools: <><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.4-3.4a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 1 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z" /></>,
   status: <><rect x="4" y="8" width="16" height="12" rx="2" /><path d="M12 8V4H9" /></>,
   analytics: <><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></>,
+  audit: <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></>,
 }
 function ShortcutIcon({ name }) {
   return (

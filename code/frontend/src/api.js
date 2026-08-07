@@ -33,6 +33,8 @@ export const api = {
   search: (payload) => request('/search', { method: 'POST', body: payload }),
   ask: (payload) => request('/ask', { method: 'POST', body: payload }),
 
+  registerLogin: (payload) => request('/users/login', { method: 'POST', body: payload }),
+
   agents: () => request('/agents'),
   agent: (name) => request(`/agents/${encodeURIComponent(name)}`),
   deployAgent: (name, owner) => request(`/agents/${encodeURIComponent(name)}/deploy${owner ? `?owner=${encodeURIComponent(owner)}` : ''}`, { method: 'POST' }),
@@ -42,6 +44,7 @@ export const api = {
   azure: () => request('/azure'),
 
   analyticsUsage: () => request('/analytics/usage'),
+  analyticsAudit: () => request('/analytics/audit'),
 
   sessions: {
     list: (owner) => request(owner ? `/sessions?owner=${encodeURIComponent(owner)}` : '/sessions'),
